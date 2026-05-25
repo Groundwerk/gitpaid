@@ -2,11 +2,12 @@ name = "payroll-backend"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
+workers_dev = true
 
 [vars]
-JWT_SECRET = "change-me-generate-with-openssl-rand-base64-32"
-GOOGLE_CLIENT_ID = "your-google-client-id.apps.googleusercontent.com"
-GMAIL_CLIENT_SECRET = "your-google-client-secret"
+
+[secrets]
+required = [ "JWT_SECRET", "GOOGLE_CLIENT_ID", "GMAIL_CLIENT_SECRET" ]
 
 [[d1_databases]]
 binding = "DB"
