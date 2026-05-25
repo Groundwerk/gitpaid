@@ -94,6 +94,8 @@ export const api = {
     wsibStatus?: string;
     ehtDueDate?: string | null;
     ehtStatus?: string;
+    gmailConnected?: boolean;
+    gmailEmail?: string | null;
   }>('/reports/ytd'),
 
   getPaystubUrl: (runId: number, employeeId: number) => 
@@ -107,6 +109,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ runId, employeeIds })
     }),
+
+  getGmailAuthUrl: (origin: string) => 
+    request<{ url: string }>(`/auth/google/login-url?origin=${encodeURIComponent(origin)}`),
+
+  disconnectGmail: () => 
+    request<{ message: string }>('/settings/gmail', { method: 'DELETE' }),
 
   // Pay Groups & Schedules
   getPayGroups: () => request<any[]>('/pay-groups'),

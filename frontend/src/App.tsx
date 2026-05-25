@@ -38,6 +38,21 @@ export const App: React.FC = () => {
   const [isOnboardingNew, setIsOnboardingNew] = useState<boolean>(false);
   const [selectedScheduleIdForRun, setSelectedScheduleIdForRun] = useState<number | null>(null);
 
+  // Check for Gmail connection callback params in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gmailSuccess = params.get('gmail_success');
+    const gmailError = params.get('gmail_error');
+
+    if (gmailSuccess) {
+      triggerToast('Gmail account connected successfully!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (gmailError) {
+      triggerToast(`Failed to connect Gmail: ${decodeURIComponent(gmailError)}`, 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Fetch company settings name when companyId is set
   useEffect(() => {
     if (token && companyId) {

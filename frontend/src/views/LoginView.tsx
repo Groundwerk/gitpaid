@@ -20,7 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
       if (g && g.accounts) {
         g.accounts.id.initialize({
           // Placeholder client_id. Can override in settings if needed.
-          client_id: '123456789-placeholder.apps.googleusercontent.com',
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '123456789-placeholder.apps.googleusercontent.com',
           callback: async (response: any) => {
             await handleLogin(response.credential);
           }

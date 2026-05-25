@@ -189,4 +189,26 @@ const saveSettings = async (c: any) => {
 router.post('/', saveSettings);
 router.put('/', saveSettings);
 
+// DELETE /api/settings/gmail (Disconnect Gmail)
+router.delete('/gmail', async (c) => {
+  try {
+    const payload = c.get('jwtPayload' as any) as any;
+    const companyId = payload?.companyId;
+
+    if (!companyId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    await c.env.DB.prepare(`
+      UPDATE company_settings
+      SET gmail_refresh_token = NULL, gmail_email = NULL
+      WHERE id = ?
+    `).bind(companyId).run();
+
+    return c.json({ message: 'Gmail integration disconnected successfully' });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 export default router;

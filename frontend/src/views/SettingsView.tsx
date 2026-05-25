@@ -67,6 +67,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [editEnd, setEditEnd] = useState('');
   const [editPayment, setEditPayment] = useState('');
 
+  const [connectingGmail, setConnectingGmail] = useState(false);
+  const [disconnectingGmail, setDisconnectingGmail] = useState(false);
+
+  const handleConnectGmail = async () => {
+    try {
+      setConnectingGmail(true);
+      const res = await api.getGmailAuthUrl(window.location.origin);
+      if (res && res.url) {
+        window.location.href = res.url;
+      } else {
+        throw new Error('OAuth URL not returned');
+      }
+    } catch (error: any) {
+      console.error('Failed to get Gmail auth url:', error);
+      triggerToast(error.message || 'Failed to initiate Gmail connection.', 'error');
+    } finally {
+      setConnectingGmail(false);
+    }
+  };
+
+  const handleDisconnectGmail = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Gmail? All email stub features will be hidden.')) {
+      return;
+    }
+    try {
+      setDisconnectingGmail(true);
+      await api.disconnectGmail();
+      triggerToast('Gmail account disconnected successfully!', 'success');
+      
+      const data = await api.getSettings();
+      if (data) {
+        setSettings(data);
+      }
+      if (onSettingsUpdate) onSettingsUpdate();
+    } catch (error: any) {
+      console.error('Failed to disconnect Gmail:', error);
+      triggerToast(error.message || 'Failed to disconnect Gmail account.', 'error');
+    } finally {
+      setDisconnectingGmail(false);
+    }
+  };
 
   useEffect(() => {
     async function loadSettings() {
@@ -700,6 +741,80 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Default is 1.4. Applied as match multiplier on employee EI.
                   </p>
                 </div>
+              </div>
+            </section>
+
+            {/* Card: Email Paystubs Integration */}
+            <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-primary mb-4 border-b border-outline-variant pb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">mail</span>
+                Email Paystubs Integration
+              </h3>
+              
+              <div className="flex flex-col gap-4">
+                {settings.gmail_email ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 text-xs font-semibold">
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      <div className="flex-1">
+                        <div className="font-bold text-[11px] uppercase tracking-wider">Connected</div>
+                        <div className="text-[13px] font-mono mt-0.5">{settings.gmail_email}</div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                      All PDF paystub email features are enabled. Paystubs will be sent to employees from this Gmail address.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectGmail}
+                      disabled={disconnectingGmail}
+                      className="w-full px-4 py-2.5 rounded-lg border border-red-200 hover:bg-red-50 text-xs font-bold text-red-600 transition-colors flex items-center justify-center gap-1.5 cursor-pointer bg-transparent"
+                    >
+                      {disconnectingGmail ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
+                          Disconnecting...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px]">link_off</span>
+                          Disconnect Gmail Account
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant text-on-surface-variant rounded-lg p-3 text-xs font-semibold">
+                      <span className="material-symbols-outlined text-[18px]">info</span>
+                      <div className="flex-1">
+                        <div className="font-bold text-[11px] uppercase tracking-wider">Not Connected</div>
+                        <div className="text-[13px] mt-0.5">Gmail integration is inactive.</div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                      Link your Gmail account to enable direct emailing of paystubs. If not linked, all paystub email features will be hidden.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleConnectGmail}
+                      disabled={connectingGmail}
+                      className="w-full px-4 py-2.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer border-none"
+                    >
+                      {connectingGmail ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-on-primary"></div>
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px]">key</span>
+                          Connect Gmail Account
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
 

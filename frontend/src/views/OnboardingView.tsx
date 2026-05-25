@@ -16,6 +16,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 }) => {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [connectingGmail, setConnectingGmail] = useState(false);
+  const [onboardingResponse, setOnboardingResponse] = useState<{ token: string; companyId: number } | null>(null);
   const [settings, setSettings] = useState<Partial<CompanySettings>>({
     legal_name: '',
     operating_name: '',
@@ -94,18 +96,51 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     setStep(prev => prev - 1);
   };
 
+  const handleConnectGmail = async () => {
+    try {
+      setConnectingGmail(true);
+      const res = await api.getGmailAuthUrl(window.location.origin);
+      if (res && res.url) {
+        window.location.href = res.url;
+      } else {
+        throw new Error('OAuth URL not returned');
+      }
+    } catch (error: any) {
+      console.error('Failed to get Gmail auth url:', error);
+      triggerToast(error.message || 'Failed to initiate Gmail connection.', 'error');
+      setConnectingGmail(false);
+    }
+  };
+
+  const handleSkipGmail = () => {
+    if (onboardingResponse) {
+      onOnboardingComplete(onboardingResponse.token, onboardingResponse.companyId);
+    } else {
+      const token = localStorage.getItem('token');
+      const companyIdVal = localStorage.getItem('companyId');
+      if (token && companyIdVal) {
+        onOnboardingComplete(token, parseInt(companyIdVal, 10));
+      } else {
+        triggerToast('Session error. Please try logging in again.', 'error');
+        onLogout();
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep()) return;
 
     try {
       setSaving(true);
-      // Call updateSettings, which on onboarding returns a session with a new token and companyId
       const response: any = await api.updateSettings(settings);
       
       if (response && response.token && response.companyId) {
         triggerToast('Company profile and payroll setup complete!', 'success');
-        onOnboardingComplete(response.token, response.companyId);
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('companyId', response.companyId.toString());
+        setOnboardingResponse({ token: response.token, companyId: response.companyId });
+        setStep(4);
       } else {
         throw new Error('Onboarding did not return session token');
       }
@@ -141,7 +176,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 relative px-4">
           <div className="absolute left-8 right-8 top-1/2 h-0.5 bg-outline-variant -translate-y-1/2 z-0">
-            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(step - 1) * 50}%` }}></div>
+            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(step - 1) * 33.33}%` }}></div>
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
@@ -160,9 +195,16 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
           <div className="relative z-10 flex flex-col items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 3 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
-              3
+              {step > 3 ? <span className="material-symbols-outlined text-[16px]">check</span> : '3'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 3 ? 'text-primary' : 'text-on-surface-variant'}`}>Payroll &amp; Tax</span>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 4 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
+              4
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 4 ? 'text-primary' : 'text-on-surface-variant'}`}>Email Stubs</span>
           </div>
         </div>
 
@@ -532,50 +574,98 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-outline-variant">
-            {step > 1 ? (
-              <button 
-                type="button" 
-                onClick={handleBack}
-                className="px-5 py-2.5 rounded-xl border border-outline-variant hover:bg-surface-container-low text-xs font-bold text-primary transition-colors flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                Back
-              </button>
-            ) : (
-              <div />
-            )}
+          {step === 4 && (
+            <div className="flex flex-col items-center text-center gap-6 animate-fade-in py-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-3xl">mail</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-on-surface">Enable Email Paystubs</h3>
+                <p className="text-sm text-on-surface-variant mt-2 max-w-md">
+                  Securely link your Gmail account to send professional, Ontario-compliant paystubs directly to employees from your email address. 
+                </p>
+                <p className="text-xs text-outline mt-3 max-w-sm">
+                  If skipped, paystub email buttons and actions will be disabled and hidden throughout the application. You can always enable this later in settings.
+                </p>
+              </div>
 
-            {step < 3 ? (
-              <button 
-                type="button" 
-                onClick={handleNext}
-                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm flex items-center gap-1"
-              >
-                Continue
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </button>
-            ) : (
-              <button 
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-on-secondary mr-1"></div>
-                    Setting up...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
-                    Finish Setup &amp; Enter Dashboard
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+              <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+                <button
+                  type="button"
+                  onClick={handleConnectGmail}
+                  disabled={connectingGmail}
+                  className="w-full h-11 bg-primary text-on-primary rounded-xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-sm flex items-center justify-center gap-2"
+                >
+                  {connectingGmail ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-primary"></div>
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">key</span>
+                      Connect Gmail Account
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSkipGmail}
+                  className="w-full h-11 border border-outline-variant hover:bg-surface-container-low rounded-xl font-bold text-sm text-primary transition-colors"
+                >
+                  Skip &amp; Go to Dashboard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          {step < 4 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-outline-variant">
+              {step > 1 ? (
+                <button 
+                  type="button" 
+                  onClick={handleBack}
+                  className="px-5 py-2.5 rounded-xl border border-outline-variant hover:bg-surface-container-low text-xs font-bold text-primary transition-colors flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                  Back
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {step < 3 ? (
+                <button 
+                  type="button" 
+                  onClick={handleNext}
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm flex items-center gap-1"
+                >
+                  Continue
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              ) : (
+                <button 
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-on-secondary mr-1"></div>
+                      Setting up...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
+                      Finish Setup &amp; Enter Dashboard
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>

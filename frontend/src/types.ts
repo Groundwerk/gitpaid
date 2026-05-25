@@ -21,6 +21,8 @@ export interface CompanySettings {
   address_line2?: string;
   province?: string;
   override_ei_employer_rate?: number;
+  gmail_refresh_token?: string;
+  gmail_email?: string | null;
 }
 
 export interface Employee {

@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
-import { sign } from 'hono/jwt';
+import { sign, verify } from 'hono/jwt';
+import { encryptText } from '../utils/crypto';
 
 const router = new Hono<{
   Bindings: {
     DB: D1Database;
     GOOGLE_CLIENT_ID: string;
+    GMAIL_CLIENT_SECRET?: string;
     JWT_SECRET: string;
   };
 }>();
@@ -90,4 +92,137 @@ router.post('/google', async (c) => {
   }
 });
 
+// GET /api/auth/google/login-url
+router.get('/google/login-url', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Unauthorized: Missing Authorization header' }, 401);
+    }
+    const token = authHeader.substring(7);
+    let payload;
+    try {
+      payload = await verify(token, c.env.JWT_SECRET, 'HS256');
+    } catch (e) {
+      return c.json({ error: 'Unauthorized: Invalid token' }, 401);
+    }
+    const companyId = payload.companyId;
+    if (!companyId) {
+      return c.json({ error: 'Unauthorized: Missing company association' }, 401);
+    }
+
+    const origin = c.req.query('origin') || 'http://localhost:5173';
+    
+    // Create state token containing companyId and origin, valid for 15m
+    const statePayload = {
+      companyId,
+      origin,
+      exp: Math.floor(Date.now() / 1000) + 15 * 60
+    };
+    const stateToken = await sign(statePayload, c.env.JWT_SECRET, 'HS256');
+
+    const requestUrl = new URL(c.req.url);
+    const backendOrigin = requestUrl.origin;
+    const redirectUri = `${backendOrigin}/api/auth/google/callback`;
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
+      client_id: c.env.GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid profile email https://www.googleapis.com/auth/gmail.send',
+      access_type: 'offline',
+      prompt: 'consent',
+      state: stateToken
+    }).toString();
+
+    return c.json({ url: googleAuthUrl });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// GET /api/auth/google/callback
+router.get('/google/callback', async (c) => {
+  let targetOrigin = 'http://localhost:5173';
+  try {
+    const code = c.req.query('code');
+    const state = c.req.query('state');
+    
+    if (!state) {
+      throw new Error('OAuth state is missing');
+    }
+
+    let payload: any;
+    try {
+      payload = await verify(state, c.env.JWT_SECRET, 'HS256');
+    } catch (e) {
+      throw new Error('OAuth state verification failed');
+    }
+
+    const { companyId, origin } = payload;
+    if (origin) targetOrigin = origin;
+
+    if (!code) {
+      throw new Error('OAuth authorization code is missing from Google');
+    }
+
+    const requestUrl = new URL(c.req.url);
+    const backendOrigin = requestUrl.origin;
+    const redirectUri = `${backendOrigin}/api/auth/google/callback`;
+
+    // Exchange code for tokens
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: c.env.GOOGLE_CLIENT_ID,
+        client_secret: c.env.GMAIL_CLIENT_SECRET || '',
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code'
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errText = await tokenResponse.text();
+      throw new Error(`Google token exchange failed: ${errText}`);
+    }
+
+    const tokenData = await tokenResponse.json() as any;
+    const { refresh_token, access_token } = tokenData;
+    console.log('[CALLBACK] Scopes returned from Google token exchange:', tokenData.scope);
+
+    if (!refresh_token) {
+      throw new Error('Google did not return a refresh token. Please disconnect and reconnect your account to force consent.');
+    }
+
+    // Get user info to retrieve authorized email address
+    const userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    
+    let gmailEmail = 'Connected Account';
+    if (userinfoResponse.ok) {
+      const userinfo = await userinfoResponse.json() as any;
+      if (userinfo.email) gmailEmail = userinfo.email;
+    }
+
+    // Encrypt the refresh token
+    const encryptedToken = await encryptText(refresh_token, c.env.JWT_SECRET);
+
+    // Save to company settings
+    await c.env.DB.prepare(`
+      UPDATE company_settings
+      SET gmail_refresh_token = ?, gmail_email = ?
+      WHERE id = ?
+    `).bind(encryptedToken, gmailEmail, companyId).run();
+
+    return c.redirect(`${targetOrigin}?gmail_success=true`);
+  } catch (error: any) {
+    console.error('Google OAuth callback error:', error);
+    return c.redirect(`${targetOrigin}?gmail_error=${encodeURIComponent(error.message)}`);
+  }
+});
+
 export default router;
+

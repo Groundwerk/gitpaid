@@ -341,14 +341,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
       setEmailingStubs(true);
       triggerToast(`Initiating paystub delivery for ${selectedEmployeeIds.length} employee(s)...`, 'success');
       const res = await api.emailStubs(selectedRunId, selectedEmployeeIds);
-      if (res.mocked) {
+      
+      const failures = res.results ? res.results.filter(r => !r.success) : [];
+      const successes = res.results ? res.results.filter(r => r.success) : [];
+
+      if (failures.length > 0) {
+        console.error('[EMAIL STUBS] Batch email delivery failed for some employees:', failures);
+        const errMsg = failures[0].error || 'Gmail API permission error or connection failure.';
+        triggerToast(`Failed to send ${failures.length} email(s). Error: ${errMsg}`, 'error');
+      } else if (res.mocked) {
         triggerToast('Muted Send: Mock emails logged to worker console.', 'success');
       } else {
-        triggerToast('Paystubs emailed successfully.', 'success');
+        triggerToast(`Paystubs emailed successfully to ${successes.length} employee(s).`, 'success');
       }
       setSelectedEmployeeIds([]);
     } catch (err: any) {
-      console.error(err);
+      console.error('[EMAIL STUBS] Batch email dispatch failed:', err);
       triggerToast(err.message || 'Failed to email paystubs.', 'error');
     } finally {
       setEmailingStubs(false);
@@ -360,13 +368,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
     try {
       triggerToast('Sending paystub email...', 'success');
       const res = await api.emailStubs(selectedRunId, [employeeId]);
+      const result = res.results && res.results[0];
+      
+      if (result && !result.success) {
+        throw new Error(result.error || 'Failed to deliver paystub email.');
+      }
+      
       if (res.mocked) {
         triggerToast('Muted Send: Mock email logged to worker console.', 'success');
       } else {
         triggerToast('Paystub email sent successfully.', 'success');
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('[EMAIL STUBS] Single email dispatch failed:', err);
       triggerToast(err.message || 'Failed to send paystub email.', 'error');
     }
   };
@@ -854,6 +868,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
             </div>
           )}
 
+          {/* Gmail Integration Not Connected Alert */}
+          {runDetails && !ytdData?.gmailConnected && (
+            <div className="mx-4 mt-4 p-3 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs flex items-center gap-2 font-medium">
+              <span className="material-symbols-outlined text-blue-700 text-sm">info</span>
+              <span className="flex-1">
+                Gmail Integration is not configured. To email paystubs directly to employees, configure Gmail under **Company Settings**.
+              </span>
+            </div>
+          )}
+
           {/* Quick Filters for Details Table */}
           {runDetails && (
             <div className="px-4 py-2 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
@@ -905,20 +929,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container-low border-b border-outline-variant text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    <th className="py-2.5 px-4 w-10">
-                      <input 
-                        type="checkbox"
-                        checked={isAllSelected}
-                        onChange={() => {
-                          if (isAllSelected) {
-                            setSelectedEmployeeIds(selectedEmployeeIds.filter(id => !activeIds.includes(id)));
-                          } else {
-                            setSelectedEmployeeIds([...new Set([...selectedEmployeeIds, ...activeIds])]);
-                          }
-                        }}
-                        className="rounded border-outline-variant text-secondary focus:ring-secondary w-3.5 h-3.5 cursor-pointer"
-                      />
-                    </th>
+                    {ytdData?.gmailConnected && (
+                      <th className="py-2.5 px-4 w-10">
+                        <input 
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={() => {
+                            if (isAllSelected) {
+                              setSelectedEmployeeIds(selectedEmployeeIds.filter(id => !activeIds.includes(id)));
+                            } else {
+                              setSelectedEmployeeIds([...new Set([...selectedEmployeeIds, ...activeIds])]);
+                            }
+                          }}
+                          className="rounded border-outline-variant text-secondary focus:ring-secondary w-3.5 h-3.5 cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="py-2.5 px-4">Employee</th>
                     <th className="py-2.5 px-4 text-right">Gross</th>
                     <th className="py-2.5 px-4 text-right">Deductions</th>
@@ -933,15 +959,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                     const isReversed = emp.status === 'reversed';
                     return (
                       <tr key={emp.employee_id} className={`border-b border-outline-variant hover:bg-surface-container-low/20 transition-colors text-xs font-semibold ${isRowSelected ? 'bg-surface-container-low' : ''} ${isReversed ? 'opacity-60' : ''}`}>
-                        <td className="py-3 px-4">
-                          <input 
-                            type="checkbox"
-                            checked={isRowSelected}
-                            disabled={isReversed}
-                            onChange={() => toggleSelectEmployee(emp.employee_id)}
-                            className="rounded border-outline-variant text-secondary focus:ring-secondary w-3.5 h-3.5 cursor-pointer disabled:opacity-50"
-                          />
-                        </td>
+                        {ytdData?.gmailConnected && (
+                          <td className="py-3 px-4">
+                            <input 
+                              type="checkbox"
+                              checked={isRowSelected}
+                              disabled={isReversed}
+                              onChange={() => toggleSelectEmployee(emp.employee_id)}
+                              className="rounded border-outline-variant text-secondary focus:ring-secondary w-3.5 h-3.5 cursor-pointer disabled:opacity-50"
+                            />
+                          </td>
+                        )}
                         <td className="py-3 px-4 font-bold text-on-surface">
                           <span className={isReversed ? 'line-through text-on-surface-variant' : ''}>
                             {emp.first_name} {emp.last_name}
@@ -996,18 +1024,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                                   {downloadingStubId === emp.employee_id ? 'Downloading...' : 'Download PDF Stub'}
                                 </button>
                                 
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuEmployeeId(null);
-                                    await handleEmailSingleStub(emp.employee_id);
-                                  }}
-                                  disabled={isReversed}
-                                  className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-none font-semibold disabled:opacity-40"
-                                >
-                                  <span className="material-symbols-outlined text-sm text-secondary">mail</span>
-                                  Email Paystub
-                                </button>
+                                {ytdData?.gmailConnected && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuEmployeeId(null);
+                                      await handleEmailSingleStub(emp.employee_id);
+                                    }}
+                                    disabled={isReversed}
+                                    className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-none font-semibold disabled:opacity-40"
+                                  >
+                                    <span className="material-symbols-outlined text-sm text-secondary">mail</span>
+                                    Email Paystub
+                                  </button>
+                                )}
 
                                 {emp.status === 'draft' && (
                                   <>

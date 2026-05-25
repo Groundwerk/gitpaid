@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { jsPDF } from 'jspdf';
+import { decryptText } from '../utils/crypto';
 
 const router = new Hono<{
   Bindings: {
@@ -8,6 +9,8 @@ const router = new Hono<{
     GMAIL_ACCESS_TOKEN?: string;
     GMAIL_CLIENT_ID?: string;
     GMAIL_CLIENT_SECRET?: string;
+    GOOGLE_CLIENT_ID?: string;
+    JWT_SECRET: string;
   };
 }>();
 
@@ -49,7 +52,7 @@ router.get('/ytd', async (c) => {
       GROUP BY pr.id
     `).bind(companyId).all() as any;
 
-    const settings = await c.env.DB.prepare('SELECT eht_exempt FROM company_settings WHERE id = ?')
+    const settings = await c.env.DB.prepare('SELECT eht_exempt, gmail_refresh_token, gmail_email FROM company_settings WHERE id = ?')
       .bind(companyId)
       .first() as any;
 
@@ -343,7 +346,9 @@ router.get('/ytd', async (c) => {
       wsibDueDate,
       wsibStatus,
       ehtDueDate,
-      ehtStatus
+      ehtStatus,
+      gmailConnected: !!settings?.gmail_refresh_token,
+      gmailEmail: settings?.gmail_email || null
     });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -549,7 +554,20 @@ router.post('/email-stubs', async (c) => {
     }
 
     const results = [];
-    const isGmailConfigured = !!(c.env.GMAIL_REFRESH_TOKEN || c.env.GMAIL_ACCESS_TOKEN);
+    
+    let gmailRefreshToken = '';
+    if (settings.gmail_refresh_token) {
+      try {
+        gmailRefreshToken = await decryptText(settings.gmail_refresh_token, c.env.JWT_SECRET);
+      } catch (err) {
+        console.error('[EMAIL STUBS] Failed to decrypt database GMAIL_REFRESH_TOKEN:', err);
+      }
+    }
+    if (!gmailRefreshToken) {
+      gmailRefreshToken = c.env.GMAIL_REFRESH_TOKEN || '';
+    }
+
+    const isGmailConfigured = !!(gmailRefreshToken || c.env.GMAIL_ACCESS_TOKEN);
 
     // Get a Gmail Access Token if credentials are set
     let gmailAccessToken = '';
@@ -557,13 +575,16 @@ router.post('/email-stubs', async (c) => {
       if (c.env.GMAIL_ACCESS_TOKEN) {
         gmailAccessToken = c.env.GMAIL_ACCESS_TOKEN;
       } else {
+        const clientIdUsed = c.env.GMAIL_CLIENT_ID || c.env.GOOGLE_CLIENT_ID || '';
+        const clientSecretUsed = c.env.GMAIL_CLIENT_SECRET || '';
+        
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
-            client_id: c.env.GMAIL_CLIENT_ID || '',
-            client_secret: c.env.GMAIL_CLIENT_SECRET || '',
-            refresh_token: c.env.GMAIL_REFRESH_TOKEN || '',
+            client_id: clientIdUsed,
+            client_secret: clientSecretUsed,
+            refresh_token: gmailRefreshToken,
             grant_type: 'refresh_token'
           })
         });
@@ -571,7 +592,9 @@ router.post('/email-stubs', async (c) => {
           const tokenData = await tokenRes.json() as any;
           gmailAccessToken = tokenData.access_token;
         } else {
-          console.error('Failed to exchange Google OAuth refresh token for access token:', await tokenRes.text());
+          const errText = await tokenRes.text();
+          console.error('[EMAIL STUBS] Failed to exchange Google OAuth refresh token for access token. Status:', tokenRes.status, 'Response:', errText);
+          return c.json({ error: `Gmail integration credentials expired or invalid: ${errText}` }, 401);
         }
       }
     }
@@ -659,11 +682,16 @@ router.post('/email-stubs', async (c) => {
           if (sendRes.ok) {
             results.push({ employeeId, success: true, method: 'gmail' });
           } else {
-            const sendErr = await sendRes.text();
-            throw new Error(`Gmail API returned error: ${sendErr}`);
+            const sendStatus = sendRes.status;
+            const sendResText = await sendRes.text();
+            console.error(`[EMAIL STUBS] Google Gmail API Send failed. Status: ${sendStatus}, Response: ${sendResText}`);
+            throw new Error(`Gmail API returned error status ${sendStatus}: ${sendResText}`);
           }
         } catch (err: any) {
+          console.error('[EMAIL STUBS] Error in Gmail API loop:', err);
           results.push({ employeeId, success: false, error: err.message });
+          // Break the loop immediately on critical Google API send failure
+          break;
         }
       } else {
         // Mock Send Mode: Log to console
