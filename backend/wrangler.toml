@@ -1,0 +1,14 @@
+name = "payroll-backend"
+main = "src/index.ts"
+compatibility_date = "2024-05-01"
+compatibility_flags = [ "nodejs_compat" ]
+
+[vars]
+GOOGLE_CLIENT_ID = "123456789-placeholder.apps.googleusercontent.com"
+JWT_SECRET = "local-development-secret-key-123456789"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "payroll_db"
+database_id = "f83d9b4b-97e3-4c91-92b7-08709320e8d0"
+migrations_dir = "migrations"
