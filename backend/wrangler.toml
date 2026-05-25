@@ -9,6 +9,11 @@ workers_dev = true
 [secrets]
 required = [ "JWT_SECRET", "GOOGLE_CLIENT_ID", "GMAIL_CLIENT_SECRET" ]
 
+# Serve the frontend SPA from the worker
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "payroll_db"

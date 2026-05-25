@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 .vite/
+backend/public/
 
 # Cloudflare Wrangler specific files/directories
 .wrangler/

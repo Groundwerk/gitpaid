@@ -5,7 +5,10 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "build:frontend": "cd ../frontend && npm install && VITE_API_URL=/api npm run build && rm -rf ../backend/public && cp -r dist ../backend/public",
+    "build": "npm run build:frontend",
+    "deploy": "npm run build && wrangler d1 migrations apply payroll_db --remote && wrangler deploy",
+    "deploy:backend-only": "wrangler deploy",
     "test": "vitest run"
   },
   "dependencies": {

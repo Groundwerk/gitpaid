@@ -13,6 +13,7 @@ const app = new Hono<{
     DB: D1Database;
     GOOGLE_CLIENT_ID: string;
     JWT_SECRET: string;
+    ASSETS: Fetcher;
   };
 }>();
 
@@ -51,6 +52,14 @@ app.route('/api/pay-groups', schedulesRouter);
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ status: 'healthy', worker: 'Cloudflare', timestamp: new Date().toISOString() });
+});
+
+// SPA catch-all: serve index.html for any non-API route
+app.get('*', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url)));
+  }
+  return c.json({ error: 'Not found' }, 404);
 });
 
 export default app;
