@@ -210,13 +210,13 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((emp) => (
+				{filteredEmployees.map((emp) => (
                   <tr 
                     key={emp.id} 
                     onClick={() => onEditEmployee(emp.id)}
                     className="border-b border-outline-variant hover:bg-surface-container-low/40 transition-colors group cursor-pointer"
                   >
-                    <td className="py-4.5 px-6">
+                    <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         {emp.avatar.startsWith('http') ? (
                           <img 
@@ -235,17 +235,17 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="py-4.5 px-6">
+                    <td className="py-4 px-6">
                       <p className="text-on-surface font-medium text-sm">{emp.role}</p>
                       <p className="text-xs text-on-surface-variant font-medium">{emp.department}</p>
                     </td>
-                    <td className="py-4.5 px-6 text-on-surface text-sm font-semibold">
+                    <td className="py-4 px-6 text-on-surface text-sm font-semibold">
                       {formatPayType(emp.pay_type)}
                     </td>
-                    <td className="py-4.5 px-6">
+                    <td className="py-4 px-6">
                       {getStatusBadge(emp.status)}
                     </td>
-                    <td className="py-4.5 px-6 text-right">
+                    <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={(e) => {
@@ -272,7 +272,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
             </table>
           )}
         </div>
-        <div className="bg-surface-container-lowest border-t border-outline-variant py-4.5 px-6 flex items-center justify-between">
+        <div className="bg-surface-container-lowest border-t border-outline-variant py-4 px-6 flex items-center justify-between">
           <p className="text-xs text-on-surface-variant font-medium">
             Showing {filteredEmployees.length} of {employees.length} employees
           </p>

@@ -35,3 +35,17 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #737780;
 }
+
+@keyframes pulse-light {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-light {
+  animation: pulse-light 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

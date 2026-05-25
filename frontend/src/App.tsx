@@ -36,6 +36,7 @@ export const App: React.FC = () => {
   // Navigation states for employee view subroutes
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
   const [isOnboardingNew, setIsOnboardingNew] = useState<boolean>(false);
+  const [selectedScheduleIdForRun, setSelectedScheduleIdForRun] = useState<number | null>(null);
 
   // Fetch company settings name when companyId is set
   useEffect(() => {
@@ -120,6 +121,9 @@ export const App: React.FC = () => {
     // Reset employee subviews when switching tabs
     setEditingEmployeeId(null);
     setIsOnboardingNew(false);
+    if (tabId !== 'run-payroll') {
+      setSelectedScheduleIdForRun(null);
+    }
     setActiveTab(tabId);
   };
 
@@ -163,7 +167,15 @@ export const App: React.FC = () => {
       case 'dashboard':
         return (
           <DashboardView 
-            onStartPayroll={() => navigateToTab('run-payroll')}
+            onStartPayroll={(scheduleId) => {
+              if (scheduleId) {
+                setSelectedScheduleIdForRun(scheduleId);
+              } else {
+                setSelectedScheduleIdForRun(null);
+              }
+              navigateToTab('run-payroll');
+            }}
+            onNavigateToTab={navigateToTab}
             triggerToast={triggerToast}
           />
         );
@@ -178,7 +190,11 @@ export const App: React.FC = () => {
       case 'run-payroll':
         return (
           <PayrollRunView 
-            onSuccess={() => navigateToTab('reports')}
+            preselectedScheduleId={selectedScheduleIdForRun}
+            onSuccess={() => {
+              setSelectedScheduleIdForRun(null);
+              navigateToTab('reports');
+            }}
             triggerToast={triggerToast}
           />
         );

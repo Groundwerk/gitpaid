@@ -13,6 +13,15 @@ export interface TaxInputs {
   ehtRate: number; // e.g. 1.95 (for 1.95%)
   vacationRate: number; // e.g. 4.0 (for 4%)
   companyYtdGross: number; // to evaluate EHT threshold
+  fitExempt?: boolean;
+  fitWithholdingAmount?: number;
+  overrideFedTaxCredit?: boolean;
+  fedTaxCreditAmount?: number;
+  overrideProvTaxCredit?: boolean;
+  provTaxCreditAmount?: number;
+  wcbExempt?: boolean;
+  wcbRate?: number;
+  overrideEiEmployerRate?: number;
 }
 
 export interface TaxOutputs {
@@ -95,7 +104,16 @@ export function calculatePayrollDeductions(inputs: TaxInputs): TaxOutputs {
     ehtExempt,
     ehtRate,
     vacationRate,
-    companyYtdGross
+    companyYtdGross,
+    fitExempt = false,
+    fitWithholdingAmount = 0,
+    overrideFedTaxCredit = false,
+    fedTaxCreditAmount = 15705,
+    overrideProvTaxCredit = false,
+    provTaxCreditAmount = 12399,
+    wcbExempt = false,
+    wcbRate = 0,
+    overrideEiEmployerRate = 1.4
   } = inputs;
 
   const periodsPerYear = getPeriodsPerYear(payPeriod);
@@ -123,7 +141,7 @@ export function calculatePayrollDeductions(inputs: TaxInputs): TaxOutputs {
     const remainingContribution = Math.max(0, annualMaxEI - ytdEi);
     const calculatedEI = gross * 0.0166;
     eiEmployee = Math.min(calculatedEI, remainingContribution);
-    eiEmployer = eiEmployee * 1.4; // 1.4x match
+    eiEmployer = eiEmployee * overrideEiEmployerRate;
   }
 
   // 3. Vacation Pay Accrual
@@ -132,25 +150,31 @@ export function calculatePayrollDeductions(inputs: TaxInputs): TaxOutputs {
   // 4. Income Tax (Federal + Provincial)
   let incomeTax = 0;
   if (!taxExempt) {
-    const annualizedGross = gross * periodsPerYear;
-    
-    // Simple basic personal amount deduction for 2024 (~$15,705 federal, ~$12,399 Ontario)
-    const fedTaxable = Math.max(0, annualizedGross - 15705);
-    const provTaxable = Math.max(0, annualizedGross - 12399);
+    if (!fitExempt) {
+      const annualizedGross = gross * periodsPerYear;
+      
+      const fedCredit = overrideFedTaxCredit ? fedTaxCreditAmount : 15705;
+      const provCredit = overrideProvTaxCredit ? provTaxCreditAmount : 12399;
 
-    const federalTaxAnnual = calculateProgressiveTax(fedTaxable, federalBrackets);
-    const ontarioTaxAnnual = calculateProgressiveTax(provTaxable, ontarioBrackets);
+      const fedTaxable = Math.max(0, annualizedGross - fedCredit);
+      const provTaxable = Math.max(0, annualizedGross - provCredit);
 
-    const totalTaxAnnual = federalTaxAnnual + ontarioTaxAnnual;
-    incomeTax = totalTaxAnnual / periodsPerYear;
+      const federalTaxAnnual = calculateProgressiveTax(fedTaxable, federalBrackets);
+      const ontarioTaxAnnual = calculateProgressiveTax(provTaxable, ontarioBrackets);
+
+      const totalTaxAnnual = federalTaxAnnual + ontarioTaxAnnual;
+      incomeTax = totalTaxAnnual / periodsPerYear;
+    }
+    incomeTax += fitWithholdingAmount;
   }
 
   // 5. WSIB (Employer Paid)
   let wsibPremium = 0;
   const wsibCeiling = 112500;
-  if (ytdGross < wsibCeiling) {
+  if (!wcbExempt && ytdGross < wsibCeiling) {
     const insurableEarnings = Math.min(gross, wsibCeiling - ytdGross);
-    wsibPremium = insurableEarnings * (wsibRate / 100);
+    const effectiveWsibRate = (wcbRate > 0) ? wcbRate : wsibRate;
+    wsibPremium = insurableEarnings * (effectiveWsibRate / 100);
   }
 
   // 6. EHT (Employer Paid)

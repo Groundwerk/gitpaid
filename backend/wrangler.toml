@@ -1,6 +1,6 @@
 name = "payroll-backend"
 main = "src/index.ts"
-compatibility_date = "2024-05-01"
+compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 
 [vars]
@@ -12,3 +12,6 @@ binding = "DB"
 database_name = "payroll_db"
 database_id = "f83d9b4b-97e3-4c91-92b7-08709320e8d0"
 migrations_dir = "migrations"
+
+[dev]
+port = 5001

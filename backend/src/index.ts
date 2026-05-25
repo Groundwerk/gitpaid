@@ -6,6 +6,7 @@ import settingsRouter from './routes/settings';
 import employeesRouter from './routes/employees';
 import payrollRouter from './routes/payroll';
 import reportsRouter from './routes/reports';
+import schedulesRouter from './routes/schedules';
 
 const app = new Hono<{
   Bindings: {
@@ -45,6 +46,7 @@ app.route('/api/settings', settingsRouter);
 app.route('/api/employees', employeesRouter);
 app.route('/api/payroll-runs', payrollRouter);
 app.route('/api/reports', reportsRouter);
+app.route('/api/pay-groups', schedulesRouter);
 
 // Health check
 app.get('/api/health', (c) => {

@@ -3,30 +3,33 @@ import type { PayrollRun } from '../types';
 import { api } from '../utils/api';
 
 interface DashboardViewProps {
-  onStartPayroll: () => void;
+  onStartPayroll: (scheduleId?: number) => void;
+  onNavigateToTab?: (tabId: string) => void;
   triggerToast: (msg: string, type: 'success' | 'error') => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
   onStartPayroll,
+  onNavigateToTab,
   triggerToast
 }) => {
   const [ytdData, setYtdData] = useState<any>(null);
   const [recentRuns, setRecentRuns] = useState<PayrollRun[]>([]);
-  const [employeeCount, setEmployeeCount] = useState(0);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [ytd, runs, emps] = await Promise.all([
+        const [ytd, runs, , schedules] = await Promise.all([
           api.getYtdReports(),
           api.getPayrollRuns(),
-          api.getEmployees()
+          api.getEmployees(),
+          api.getUpcomingSchedules()
         ]);
         setYtdData(ytd);
         setRecentRuns(runs.slice(0, 5)); // Show top 5 recent runs
-        setEmployeeCount(emps.filter(e => e.status === 'active').length);
+        setUpcomingSchedules(schedules);
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
         triggerToast('Failed to load dashboard summaries.', 'error');
@@ -56,6 +59,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <h1 className="text-3xl font-bold text-on-surface mb-1">Dashboard</h1>
         <p className="text-sm text-on-surface-variant">Overview of your current payroll cycle and YTD summaries.</p>
       </div>
+
+      {/* Compliance Warning Banner */}
+      {ytdData && (
+        (() => {
+          const alerts: { type: string; agency: string; status: string; dueDate?: string; amount: number }[] = [];
+          if (ytdData.craStatus === 'DUE SOON' || ytdData.craStatus === 'OVERDUE') {
+            alerts.push({ type: 'CRA', agency: 'Canada Revenue Agency (CRA)', status: ytdData.craStatus, dueDate: ytdData.craDueDate, amount: ytdData.craRemittance });
+          }
+          if (ytdData.wsibStatus === 'DUE SOON' || ytdData.wsibStatus === 'OVERDUE') {
+            alerts.push({ type: 'WSIB', agency: 'WSIB Ontario', status: ytdData.wsibStatus, dueDate: ytdData.wsibDueDate, amount: ytdData.wsibDue });
+          }
+          if (!ytdData.ehtExempt && (ytdData.ehtStatus === 'DUE SOON' || ytdData.ehtStatus === 'OVERDUE')) {
+            alerts.push({ type: 'EHT', agency: 'Employer Health Tax (EHT)', status: ytdData.ehtStatus, dueDate: ytdData.ehtDueDate, amount: ytdData.ehtDue });
+          }
+
+          if (alerts.length === 0) return null;
+
+          return (
+            <div className="flex flex-col gap-3">
+              {alerts.map((alert, idx) => {
+                const isOverdue = alert.status === 'OVERDUE';
+                return (
+                  <div 
+                    key={idx} 
+                    className={`p-4 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-fade-in ${
+                      isOverdue 
+                        ? 'bg-rose-50 border-rose-200 text-rose-900 animate-pulse-light' 
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={`material-symbols-outlined mt-0.5 ${isOverdue ? 'text-rose-700 animate-pulse' : 'text-amber-700'}`}>
+                        {isOverdue ? 'error' : 'warning'}
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                          {alert.agency} Remittance {alert.status === 'OVERDUE' ? 'Overdue!' : 'Due Soon!'}
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase border ${
+                            isOverdue 
+                              ? 'bg-rose-100 text-rose-800 border-rose-300' 
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                            {alert.status}
+                          </span>
+                        </h4>
+                        <p className="text-xs font-semibold mt-1">
+                          An outstanding balance of <strong className="font-extrabold">{formatCurrency(alert.amount)}</strong> is {isOverdue ? 'overdue' : 'due soon'}.
+                          {alert.dueDate ? <> Please remit payment by <strong className="font-extrabold">{alert.dueDate}</strong>.</> : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <button 
+                        onClick={() => onNavigateToTab?.('reports')}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all hover:bg-white/40 cursor-pointer text-center block w-fit bg-transparent ${
+                          isOverdue 
+                            ? 'border-rose-300 text-rose-900' 
+                            : 'border-amber-300 text-amber-900'
+                        }`}
+                      >
+                        View Compliance Report
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
+      )}
 
       {/* Bento Grid: Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -106,7 +179,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">CRA Remittances</p>
             <h2 className="text-3xl font-bold text-on-surface">
-              {ytdData ? formatCurrency(ytdData.craRemittance) : '$0.00'}
+              {ytdData ? formatCurrency(ytdData.craRemittanceYTD || ytdData.craRemittance) : '$0.00'}
             </h2>
             <p className="text-xs text-on-surface-variant mt-2 font-medium">Includes employee withholdings & employer share</p>
           </div>
@@ -115,38 +188,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Next Pay Run Widget */}
+        {/* Upcoming Pay Cycles Widget */}
         <div className="lg:col-span-1 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all duration-300">
           <div className="p-6 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-            <h3 className="font-bold text-base text-primary">Next Pay Run</h3>
+            <h3 className="font-bold text-base text-primary">Upcoming Pay Cycles</h3>
             <span className="text-xs font-bold text-secondary flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span> Ready
+              <span className="material-symbols-outlined text-[16px]">schedule</span> Active
             </span>
           </div>
-          <div className="p-6 flex-1 flex flex-col justify-center items-center text-center">
-            <div className="w-16 h-16 bg-surface-container-low text-primary rounded-full flex items-center justify-center mb-4 border border-outline-variant shadow-inner">
-              <span className="material-symbols-outlined text-[32px]">calendar_today</span>
-            </div>
-            <h4 className="text-2xl font-bold text-on-surface">Oct 31, 2024</h4>
-            <p className="text-xs text-on-surface-variant font-medium mb-6">Bi-weekly Period (Oct 14 - Oct 27)</p>
-            
-            <div className="w-full bg-surface-container-low rounded-lg p-4 flex justify-around items-center border border-outline-variant mb-6 shadow-sm">
-              <div>
-                <div className="text-xl font-bold text-primary">{employeeCount}</div>
-                <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Active Staff</div>
+          <div className="p-6 flex-1 flex flex-col justify-between gap-4">
+            {upcomingSchedules.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-6 text-on-surface-variant font-medium text-xs">
+                <span className="material-symbols-outlined text-[32px] text-outline mb-2">event_busy</span>
+                No upcoming pay schedules found.<br />Configure pay groups in Settings.
               </div>
-              <div className="w-px h-8 bg-outline-variant"></div>
-              <div>
-                <div className="text-xl font-bold text-primary">1</div>
-                <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Prov. ON</div>
+            ) : (
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-[220px] pr-1">
+                {upcomingSchedules.slice(0, 4).map((schedule) => (
+                  <div key={schedule.id} className="p-3 bg-surface-container-low rounded-lg border border-outline-variant flex justify-between items-center hover:border-primary transition-all">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="text-xs font-bold text-on-surface truncate">{schedule.pay_group_name}</div>
+                      <div className="text-[10px] text-on-surface-variant font-semibold">
+                        {schedule.period_start} to {schedule.period_end}
+                      </div>
+                      <div className="text-[10px] text-primary font-bold">
+                        Pay Date: {schedule.payment_date}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onStartPayroll(schedule.id)}
+                      className="flex-shrink-0 px-3 py-1.5 bg-primary text-on-primary font-bold text-[10px] uppercase tracking-wider rounded hover:bg-opacity-90 transition-all flex items-center gap-1 shadow-sm"
+                    >
+                      Run
+                      <span className="material-symbols-outlined text-[12px]">play_arrow</span>
+                    </button>
+                  </div>
+                ))}
               </div>
-            </div>
-
-            <button 
-              onClick={onStartPayroll}
-              className="w-full bg-primary text-on-primary font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-95 transition-all shadow-sm active:scale-[0.98]"
+            )}
+            <button
+              onClick={() => onStartPayroll()}
+              className="w-full bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1 transition-all border border-outline-variant"
             >
-              Begin Preparation
+              Ad-hoc Custom Run
+              <span className="material-symbols-outlined text-[14px]">tune</span>
             </button>
           </div>
         </div>
@@ -175,14 +260,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <tbody>
                   {recentRuns.map((run) => (
                     <tr key={run.id} className="border-b border-outline-variant hover:bg-surface-container-low/40 transition-colors">
-                      <td className="py-4.5 px-6 text-sm text-on-surface font-semibold">{run.run_date}</td>
-                      <td className="py-4.5 px-6 text-xs text-on-surface-variant font-medium">
+                      <td className="py-4 px-6 text-sm text-on-surface font-semibold">{run.run_date}</td>
+                      <td className="py-4 px-6 text-xs text-on-surface-variant font-medium">
                         {run.period_start} to {run.period_end}
                       </td>
-                      <td className="py-4.5 px-6 text-sm font-bold text-primary">
+                      <td className="py-4 px-6 text-sm font-bold text-primary">
                         {formatCurrency(run.total_gross)}
                       </td>
-                      <td className="py-4.5 px-6">
+                      <td className="py-4 px-6">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">
                           {run.status.toUpperCase()}
                         </span>

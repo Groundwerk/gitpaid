@@ -53,7 +53,14 @@ const saveSettings = async (c: any) => {
       eht_exempt,
       eht_rate,
       vacation_rate,
-      pay_period
+      pay_period,
+      owner_sin = null,
+      business_type = null,
+      remittance_frequency = 'monthly',
+      contact_phone = null,
+      address_line2 = null,
+      province = 'ON',
+      override_ei_employer_rate = 1.4
     } = await c.req.json();
 
     if (!legal_name || !business_number) {
@@ -65,8 +72,9 @@ const saveSettings = async (c: any) => {
       const result = await c.env.DB.prepare(`
         INSERT INTO company_settings (
           legal_name, operating_name, business_number, address_line1, city, postal_code,
-          contact_name, contact_email, wsib_number, wsib_rate, eht_exempt, eht_rate, vacation_rate, pay_period
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          contact_name, contact_email, wsib_number, wsib_rate, eht_exempt, eht_rate, vacation_rate, pay_period,
+          owner_sin, business_type, remittance_frequency, contact_phone, address_line2, province, override_ei_employer_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         legal_name,
         operating_name || null,
@@ -81,12 +89,17 @@ const saveSettings = async (c: any) => {
         eht_exempt ? 1 : 0,
         parseFloat(eht_rate) || 1.95,
         parseFloat(vacation_rate) || 4.0,
-        pay_period || 'bi-weekly'
+        pay_period || 'bi-weekly',
+        owner_sin || null,
+        business_type || null,
+        remittance_frequency || 'monthly',
+        contact_phone || null,
+        address_line2 || null,
+        province || 'ON',
+        parseFloat(override_ei_employer_rate) || 1.4
       ).run();
 
       // Retrieve the newly created ID
-      // D1 .run() returns meta or lastRowId? For D1, result.meta.last_row_id is standard!
-      // D1 Database result: { success: true, meta: { last_row_id: number, ... } }
       const newCompanyId = result.meta.last_row_id;
       if (!newCompanyId) {
         throw new Error('Failed to generate company ID');
@@ -128,7 +141,14 @@ const saveSettings = async (c: any) => {
           eht_exempt = ?,
           eht_rate = ?,
           vacation_rate = ?,
-          pay_period = ?
+          pay_period = ?,
+          owner_sin = ?,
+          business_type = ?,
+          remittance_frequency = ?,
+          contact_phone = ?,
+          address_line2 = ?,
+          province = ?,
+          override_ei_employer_rate = ?
         WHERE id = ?
       `).bind(
         legal_name,
@@ -145,6 +165,13 @@ const saveSettings = async (c: any) => {
         parseFloat(eht_rate),
         parseFloat(vacation_rate),
         pay_period,
+        owner_sin,
+        business_type,
+        remittance_frequency,
+        contact_phone,
+        address_line2,
+        province,
+        parseFloat(override_ei_employer_rate),
         companyId
       ).run();
 

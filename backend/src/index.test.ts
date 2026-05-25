@@ -96,7 +96,14 @@ describe('2. Hono REST API Routes Integration', () => {
                   eht_exempt: 1,
                   eht_rate: 1.95,
                   vacation_rate: 4.0,
-                  pay_period: 'bi-weekly'
+                  pay_period: 'bi-weekly',
+                  owner_sin: '123456789',
+                  business_type: 'Corporation',
+                  remittance_frequency: 'monthly',
+                  contact_phone: '416-555-0199',
+                  address_line2: 'Suite 400',
+                  province: 'ON',
+                  override_ei_employer_rate: 1.4
                 };
               }
               if (sql.includes('SELECT * FROM users')) {
@@ -113,7 +120,7 @@ describe('2. Hono REST API Routes Integration', () => {
               if (sql.includes('SELECT * FROM employees')) {
                 return {
                   results: [
-                    { id: 1, first_name: 'Sarah', last_name: 'Jenkins', email: 'sarah.j@company.com', pay_type: 'salary', rate: 4500, status: 'active', cpp_exempt: 0, ei_exempt: 0, tax_exempt: 0, avatar: 'SJ', ytd_gross: 0, ytd_cpp: 0, ytd_ei: 0, ytd_tax: 0 }
+                    { id: 1, first_name: 'Sarah', last_name: 'Jenkins', email: 'sarah.j@company.com', pay_type: 'salary', rate: 4500, status: 'active', cpp_exempt: 0, ei_exempt: 0, tax_exempt: 0, avatar: 'SJ', ytd_gross: 0, ytd_cpp: 0, ytd_ei: 0, ytd_tax: 0, pay_interval: 'company', sin: '987654321', start_date: '2026-01-01', fit_exempt: 0, fit_withholding_amount: 0, override_fed_tax_credit: 0, fed_tax_credit_amount: 15705, override_prov_tax_credit: 0, prov_tax_credit_amount: 12399, wcb_exempt: 0, wcb_rate: 0 }
                   ]
                 };
               }

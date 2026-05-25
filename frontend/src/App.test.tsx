@@ -19,6 +19,8 @@ vi.mock('./utils/api', () => {
       updateSettings: vi.fn(),
       getEmployees: vi.fn().mockResolvedValue([]),
       getPayrollRuns: vi.fn().mockResolvedValue([]),
+      getUpcomingSchedules: vi.fn().mockResolvedValue([]),
+      getPayGroups: vi.fn().mockResolvedValue([]),
       getYtdReports: vi.fn().mockResolvedValue({
         totalGross: 0,
         totalNet: 0,

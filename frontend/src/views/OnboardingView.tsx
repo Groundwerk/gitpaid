@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../utils/api';
+import { sanitizeNumericInput } from '../utils/helpers';
 import type { CompanySettings } from '../types';
 
 interface OnboardingViewProps {
@@ -29,7 +30,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     eht_exempt: 1,
     eht_rate: 1.95,
     vacation_rate: 4.0,
-    pay_period: 'bi-weekly'
+    pay_period: 'bi-weekly',
+    owner_sin: '',
+    business_type: 'Corporation',
+    remittance_frequency: 'monthly',
+    contact_phone: '',
+    address_line2: '',
+    province: 'ON',
+    override_ei_employer_rate: 1.4
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -40,7 +48,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     } else {
       setSettings(prev => ({
         ...prev,
-        [id]: type === 'number' ? parseFloat(value) || 0 : value
+        [id]: type === 'number' ? sanitizeNumericInput(value) : value
       }));
     }
   };
@@ -132,8 +140,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 relative px-4">
-          <div className="absolute left-6 right-6 top-1/2 h-0.5 bg-outline-variant -translate-y-1/2 z-0"></div>
-          <div className="absolute left-6 top-1/2 h-0.5 bg-primary -translate-y-1/2 z-0 transition-all duration-300" style={{ width: `${(step - 1) * 50}%` }}></div>
+          <div className="absolute left-8 right-8 top-1/2 h-0.5 bg-outline-variant -translate-y-1/2 z-0">
+            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(step - 1) * 50}%` }}></div>
+          </div>
 
           <div className="relative z-10 flex flex-col items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 1 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
@@ -209,6 +218,38 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   Must be in the format: 9 digits, then "RP", then 4 digits. Used for remittances to CRA.
                 </p>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="business_type">
+                    Type of Business
+                  </label>
+                  <select 
+                    id="business_type"
+                    value={settings.business_type || 'Corporation'}
+                    onChange={handleChange}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                  >
+                    <option value="Corporation">Corporation</option>
+                    <option value="Sole Proprietorship">Sole Proprietorship</option>
+                    <option value="Partnership">Partnership</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="owner_sin">
+                    Owner's SIN
+                  </label>
+                  <input 
+                    type="text" 
+                    id="owner_sin"
+                    value={settings.owner_sin || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. 123-456-789"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -216,21 +257,36 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
             <div className="flex flex-col gap-4 animate-fade-in">
               <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-1">Location &amp; Administration</h3>
               
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="address_line1">
-                  Street Address
-                </label>
-                <input 
-                  type="text" 
-                  id="address_line1"
-                  value={settings.address_line1}
-                  onChange={handleChange}
-                  placeholder="123 Bay Street"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="address_line1">
+                    Street Address
+                  </label>
+                  <input 
+                    type="text" 
+                    id="address_line1"
+                    value={settings.address_line1}
+                    onChange={handleChange}
+                    placeholder="123 Bay Street"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="address_line2">
+                    Address Line 2
+                  </label>
+                  <input 
+                    type="text" 
+                    id="address_line2"
+                    value={settings.address_line2 || ''}
+                    onChange={handleChange}
+                    placeholder="Suite, Unit, Apt #"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="city">
                     City
@@ -243,6 +299,28 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     placeholder="Toronto"
                     className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
                   />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="province">
+                    Province
+                  </label>
+                  <select 
+                    id="province"
+                    value={settings.province || 'ON'}
+                    onChange={handleChange}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                  >
+                    <option value="ON">Ontario (ON)</option>
+                    <option value="AB">Alberta (AB)</option>
+                    <option value="BC">British Columbia (BC)</option>
+                    <option value="MB">Manitoba (MB)</option>
+                    <option value="NB">New Brunswick (NB)</option>
+                    <option value="NL">Newfoundland (NL)</option>
+                    <option value="NS">Nova Scotia (NS)</option>
+                    <option value="PE">Prince Edward Island (PE)</option>
+                    <option value="QC">Quebec (QC)</option>
+                    <option value="SK">Saskatchewan (SK)</option>
+                  </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="postal_code">
@@ -263,7 +341,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 <p className="text-xs font-bold text-primary mb-3">Primary Payroll Contact *</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="contact_name">
                     Contact Name *
@@ -278,19 +356,34 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     required
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="contact_email">
-                    Contact Email *
-                  </label>
-                  <input 
-                    type="email" 
-                    id="contact_email"
-                    value={settings.contact_email}
-                    onChange={handleChange}
-                    placeholder="payroll@yourcompany.ca"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="contact_email">
+                      Contact Email *
+                    </label>
+                    <input 
+                      type="email" 
+                      id="contact_email"
+                      value={settings.contact_email}
+                      onChange={handleChange}
+                      placeholder="payroll@yourcompany.ca"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="contact_phone">
+                      Contact Phone
+                    </label>
+                    <input 
+                      type="text" 
+                      id="contact_phone"
+                      value={settings.contact_phone || ''}
+                      onChange={handleChange}
+                      placeholder="e.g. 416-555-0199"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -399,6 +492,40 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       onChange={handleChange}
                       className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
                     />
+                  </div>
+                </div>
+
+                {/* Remittance & EI Overrides */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-outline-variant pt-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="remittance_frequency">
+                      Remittance Frequency
+                    </label>
+                    <select 
+                      id="remittance_frequency"
+                      value={settings.remittance_frequency || 'monthly'}
+                      onChange={handleChange}
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    >
+                      <option value="quarterly">Quarterly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="2x/month">Up to 2x / month</option>
+                      <option value="4x/month">Up to 4x / month</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="override_ei_employer_rate">
+                      EI Employer Premium Rate Override
+                    </label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      id="override_ei_employer_rate"
+                      value={settings.override_ei_employer_rate !== undefined ? settings.override_ei_employer_rate : 1.4}
+                      onChange={handleChange}
+                      className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    />
+                    <p className="text-[9px] text-on-surface-variant">Default is 1.4. Applied as match multiplier on employee EI deduction.</p>
                   </div>
                 </div>
               </div>

@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../utils/api';
+import { sanitizeNumericInput } from '../utils/helpers';
 import type { Employee } from '../types';
 
 interface PayrollRunViewProps {
+  preselectedScheduleId?: number | null;
   onSuccess: () => void;
   triggerToast: (msg: string, type: 'success' | 'error') => void;
 }
 
 export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
+  preselectedScheduleId,
   onSuccess,
   triggerToast
 }) => {
   const [step, setStep] = useState(1);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<any[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(preselectedScheduleId || null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,14 +36,20 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
   const [previewData, setPreviewData] = useState<any>(null);
 
   useEffect(() => {
-    async function loadEmployees() {
+    async function loadData() {
       try {
         setLoading(true);
-        const data = await api.getEmployees();
-        const active = data.filter(e => e.status !== 'terminated');
+        const [allEmployees, schedules] = await Promise.all([
+          api.getEmployees(),
+          api.getUpcomingSchedules()
+        ]);
+        
+        setUpcomingSchedules(schedules);
+        
+        const active = allEmployees.filter(e => e.status !== 'terminated');
         setEmployees(active);
 
-        // Pre-select all active employees
+        // Pre-select active employees
         const selectedMap: Record<number, boolean> = {};
         const hoursMap: Record<number, string> = {};
         const commissionMap: Record<number, string> = {};
@@ -51,6 +62,20 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
           vacMap[e.id] = '0';
         });
 
+        // Apply preselected schedule filter if present
+        if (preselectedScheduleId) {
+          const schedule = schedules.find(s => s.id === preselectedScheduleId);
+          if (schedule) {
+            setPeriodStart(schedule.period_start);
+            setPeriodEnd(schedule.period_end);
+            
+            // Only select active employees that belong to the schedule's pay group
+            active.forEach(e => {
+              selectedMap[e.id] = e.pay_group_id === schedule.pay_group_id && e.status === 'active';
+            });
+          }
+        }
+
         setSelectedEmps(selectedMap);
         setHoursWorked(hoursMap);
         setCommission(commissionMap);
@@ -62,23 +87,25 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
         setLoading(false);
       }
     }
-    loadEmployees();
-  }, []);
+    loadData();
+  }, [preselectedScheduleId]);
 
   const handleSelectToggle = (id: number) => {
     setSelectedEmps(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleInputChange = (id: number, field: 'hours' | 'commission' | 'vacation', value: string) => {
-    if (field === 'hours') setHoursWorked(prev => ({ ...prev, [id]: value }));
-    if (field === 'commission') setCommission(prev => ({ ...prev, [id]: value }));
-    if (field === 'vacation') setVacationPayout(prev => ({ ...prev, [id]: value }));
+    const sanitized = sanitizeNumericInput(value);
+    if (field === 'hours') setHoursWorked(prev => ({ ...prev, [id]: sanitized }));
+    if (field === 'commission') setCommission(prev => ({ ...prev, [id]: sanitized }));
+    if (field === 'vacation') setVacationPayout(prev => ({ ...prev, [id]: sanitized }));
   };
 
   const handleCalculatePreview = async () => {
     // Construct inputs
+    const sched = selectedScheduleId ? upcomingSchedules.find(s => s.id === selectedScheduleId) : null;
     const inputs = employees
-      .filter(e => selectedEmps[e.id])
+      .filter(e => selectedEmps[e.id] && (!sched || e.pay_group_id === sched.pay_group_id))
       .map(e => ({
         employee_id: e.id,
         hours_worked: e.pay_type === 'hourly' ? parseFloat(hoursWorked[e.id]) || 0 : 0,
@@ -105,8 +132,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
   };
 
   const handleSubmitPayroll = async () => {
+    const sched = selectedScheduleId ? upcomingSchedules.find(s => s.id === selectedScheduleId) : null;
     const inputs = employees
-      .filter(e => selectedEmps[e.id])
+      .filter(e => selectedEmps[e.id] && (!sched || e.pay_group_id === sched.pay_group_id))
       .map(e => ({
         employee_id: e.id,
         hours_worked: e.pay_type === 'hourly' ? parseFloat(hoursWorked[e.id]) || 0 : 0,
@@ -120,7 +148,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
         period_start: periodStart,
         period_end: periodEnd,
         payment_method: paymentMethod,
-        employeesInput: inputs
+        employeesInput: inputs,
+        pay_schedule_id: selectedScheduleId,
+        pay_group_id: sched ? sched.pay_group_id : null
       });
       triggerToast('Payroll run finalized & paid successfully!', 'success');
       onSuccess();
@@ -135,6 +165,13 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(val);
   };
+
+  const displayedEmployees = selectedScheduleId 
+    ? employees.filter(e => {
+        const sched = upcomingSchedules.find(s => s.id === selectedScheduleId);
+        return sched ? e.pay_group_id === sched.pay_group_id : true;
+      })
+    : employees;
 
   if (loading) {
     return (
@@ -153,18 +190,27 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
       </div>
 
       {/* Stepper Indicators */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm">
-        <div className="flex justify-between items-center max-w-3xl mx-auto">
-          {[1, 2, 3, 4].map((num) => {
-            const label = num === 1 ? 'Prepare' : num === 2 ? 'Calculate' : num === 3 ? 'Pay Method' : 'Confirm';
-            const isActive = step === num;
-            const isCompleted = step > num;
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+        <div className="max-w-3xl mx-auto relative">
+          {/* Background Connector Line */}
+          <div className="absolute top-[18px] left-[12.5%] right-[12.5%] h-0.5 bg-outline-variant -translate-y-1/2 z-0" />
+          
+          {/* Active Connector Line */}
+          <div 
+            className="absolute top-[18px] left-[12.5%] h-0.5 bg-green-600 -translate-y-1/2 z-0 transition-all duration-300"
+            style={{ width: `${((step - 1) / 3) * 75}%` }}
+          />
 
-            return (
-              <React.Fragment key={num}>
-                <div className="flex flex-col items-center gap-1.5 flex-1 relative">
+          <div className="flex justify-between items-center relative z-10">
+            {[1, 2, 3, 4].map((num) => {
+              const label = num === 1 ? 'Prepare' : num === 2 ? 'Calculate' : num === 3 ? 'Pay Method' : 'Confirm';
+              const isActive = step === num;
+              const isCompleted = step > num;
+
+              return (
+                <div key={num} className="flex flex-col items-center gap-1.5 w-1/4">
                   <div className={`
-                    w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all duration-200
+                    w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all duration-200 z-10
                     ${isActive ? 'bg-primary text-on-primary scale-110 ring-4 ring-primary-container' : ''}
                     ${isCompleted ? 'bg-green-600 text-on-primary' : ''}
                     ${!isActive && !isCompleted ? 'bg-surface-container-high text-on-surface-variant' : ''}
@@ -179,10 +225,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     {label}
                   </span>
                 </div>
-                {num < 4 && <div className={`h-0.5 flex-1 mx-2 ${step > num ? 'bg-green-600' : 'bg-outline-variant'}`} />}
-              </React.Fragment>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -205,7 +250,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map((emp) => {
+                    {displayedEmployees.map((emp) => {
                       const isSelected = selectedEmps[emp.id] || false;
                       return (
                         <tr key={emp.id} className={`border-b border-outline-variant hover:bg-surface-container-low/30 transition-colors ${!isSelected ? 'opacity-60' : ''}`}>
@@ -214,7 +259,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                               type="checkbox" 
                               checked={isSelected}
                               onChange={() => handleSelectToggle(emp.id)}
-                              className="rounded border-outline-variant text-primary focus:ring-primary h-4.5 w-4.5 cursor-pointer"
+                              className="rounded border-outline-variant text-primary focus:ring-primary h-5 w-5 cursor-pointer"
                             />
                           </td>
                           <td className="py-3 px-4">
@@ -281,12 +326,47 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
               <h3 className="text-base font-bold text-primary mb-4 border-b border-outline-variant pb-2">Pay Period Info</h3>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Pay Schedule / Run Type</label>
+                  <select
+                    value={selectedScheduleId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        const schedId = parseInt(val);
+                        setSelectedScheduleId(schedId);
+                        const sched = upcomingSchedules.find(s => s.id === schedId);
+                        if (sched) {
+                          setPeriodStart(sched.period_start);
+                          setPeriodEnd(sched.period_end);
+                          // Auto-select active employees in this group, unselect others
+                          const updatedSelected = { ...selectedEmps };
+                          employees.forEach(emp => {
+                            updatedSelected[emp.id] = emp.pay_group_id === sched.pay_group_id && emp.status === 'active';
+                          });
+                          setSelectedEmps(updatedSelected);
+                        }
+                      } else {
+                        setSelectedScheduleId(null);
+                      }
+                    }}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full bg-transparent cursor-pointer"
+                  >
+                    <option value="">Ad-hoc Run (Custom Dates)</option>
+                    {upcomingSchedules.map(sched => (
+                      <option key={sched.id} value={sched.id}>
+                        {sched.pay_group_name} ({sched.pay_frequency}) - Due {sched.payment_date}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Start Date</label>
                   <input 
                     type="date" 
                     value={periodStart}
                     onChange={(e) => setPeriodStart(e.target.value)}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    disabled={selectedScheduleId !== null}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full disabled:opacity-75 disabled:bg-surface-container-low"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -295,7 +375,8 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     type="date" 
                     value={periodEnd}
                     onChange={(e) => setPeriodEnd(e.target.value)}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    disabled={selectedScheduleId !== null}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full disabled:opacity-75 disabled:bg-surface-container-low"
                   />
                 </div>
                 <div className="mt-4 pt-4 border-t border-outline-variant flex flex-col gap-2">
