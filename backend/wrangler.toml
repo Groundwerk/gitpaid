@@ -4,7 +4,9 @@ compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 
 [vars]
-JWT_SECRET = "local-development-secret-key-123456789"
+JWT_SECRET = "change-me-generate-with-openssl-rand-base64-32"
+GOOGLE_CLIENT_ID = "your-google-client-id.apps.googleusercontent.com"
+GMAIL_CLIENT_SECRET = "your-google-client-secret"
 
 [[d1_databases]]
 binding = "DB"
