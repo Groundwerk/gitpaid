@@ -2,7 +2,7 @@
 
 A modern, secure, and fully dynamic payroll system specifically compliant with Ontario employment standards. Designed to run seamlessly on the **Cloudflare Serverless Stack** (Workers & D1 Database) and integrated with **Google Authentication**.
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/your-username/ontario-payroll-d1)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bsproul/gitpaid/tree/main/backend)
 
 ---
 
@@ -122,26 +122,54 @@ Apply the SQL DDL schema to your cloud instance:
 npx wrangler d1 migrations apply payroll_db --remote
 ```
 
-### 3. Set Production Secrets
-Inject the Google OAuth credentials and JWT secret into Cloudflare secrets:
+### 3. Set Production Secrets & Google Settings
+To enable JWT authentication and send paystub emails using the Gmail API, you must configure the following secret variables in Cloudflare.
+
+#### A. Google Developer Console Configuration:
+1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
+2. Enable the **Gmail API** under **APIs & Services**.
+3. Configure the **OAuth Consent Screen** (internal or external), adding `https://www.googleapis.com/auth/gmail.send` as a scope, and add your test Gmail sender address as a test user.
+4. Create an **OAuth Client ID** (Credential type: *Web Application* or *Desktop Application*) and copy the **Client ID** and **Client Secret**.
+
+#### B. Generate Gmail Refresh Token:
+Access tokens expire after 1 hour, so the backend uses a Refresh Token to generate access tokens programmatically:
+1. Go to the [Google OAuth Playground](https://developers.google.com/oauthplayground/).
+2. Click the gear icon in the top right, check **Use your own OAuth credentials**, and input your Google OAuth **Client ID** and **Client Secret**.
+3. Select and authorize the `https://www.googleapis.com/auth/gmail.send` API scope using the sender Gmail account.
+4. Click **Exchange authorization code for tokens** and copy the **Refresh Token**.
+
+#### C. Set Wrangler secrets:
+Run these commands from your local terminal to bind the secrets securely to your Cloudflare Worker:
 ```bash
 npx wrangler secret put JWT_SECRET
 npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GMAIL_CLIENT_ID
+npx wrangler secret put GMAIL_CLIENT_SECRET
+npx wrangler secret put GMAIL_REFRESH_TOKEN
 ```
 
 ### 4. Deploy the Backend Worker
-Deploy the worker code to Cloudflare Workers:
+Deploy Hono backend code to Cloudflare Workers:
 ```bash
+cd backend
 npx wrangler deploy
 ```
 
 ### 5. Deploy the Frontend
-Build the frontend and publish it to Cloudflare Pages (or host it elsewhere):
-```bash
-cd frontend
-npm run build
-```
-Upload the compiled `dist/` directory to Cloudflare Pages. Make sure to define the frontend environment variable `VITE_API_URL` pointing to your deployed backend URL.
+Build the production bundle of the frontend assets and publish them to Cloudflare Pages:
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Build the optimized static assets:
+   ```bash
+   npm run build
+   ```
+3. Deploy the `dist/` directory to Cloudflare Pages:
+   ```bash
+   npx wrangler pages deploy dist
+   ```
+4. Define the frontend environment variable `VITE_API_URL` pointing to your deployed Hono backend URL (e.g. `https://payroll-backend.yourname.workers.dev/api`).
 
 ---
 
