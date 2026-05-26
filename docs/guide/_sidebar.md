@@ -1,9 +1,9 @@
-- [← Back to Gitpaid](../index.html)
+* [**← Back to Landing Page**](../index.html)
 
 - **Getting Started**
-  - [Quick Start Guide](README.md)
-  - [Local Development Setup](local.md)
+  - [Quick Start Guide](README)
+  - [Local Development Setup](local)
 
 - **Configuration & Setup**
-  - [Google Console & OAuth](google.md)
-  - [Cloudflare Workers & D1](cloudflare.md)
+  - [Google Console & OAuth](google)
+  - [Cloudflare Workers & D1](cloudflare)

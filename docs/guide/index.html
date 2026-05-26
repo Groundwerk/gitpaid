@@ -30,6 +30,14 @@
       margin-right: 8px;
       vertical-align: middle;
     }
+    /* Prevent heading anchor links from styling as blue underlines */
+    .markdown-section h1 a, .markdown-section h2 a, .markdown-section h3 a, .markdown-section h4 a, .markdown-section h5 a, .markdown-section h6 a {
+      color: inherit !important;
+      text-decoration: none !important;
+    }
+    .markdown-section h1 a:hover, .markdown-section h2 a:hover, .markdown-section h3 a:hover, .markdown-section h4 a:hover, .markdown-section h5 a:hover, .markdown-section h6 a:hover {
+      text-decoration: none !important;
+    }
   </style>
 </head>
 <body>
@@ -37,8 +45,9 @@
   <script>
     window.$docsify = {
       name: 'Gitpaid Docs',
+      nameLink: '../index.html',
       logo: 'https://lh3.googleusercontent.com/aida/ADBb0ujdiLK8UHV_xZbaMJ2zjubhJYv7dbLDNCKO0FKZy-mwSzs4jNc4mBo_9hMrHOkXXVt4CYtGMve5IuXBg1zzRs2gs3iHzZhnN2JN0x-zDcPpubu5FqO27tr4Vc_1r-N3hUyMGNBJjvCBmrl7WB_1E2W4yQNfXNsl565XQuNSoD_rY8dBPagbD5EDNplnA0GAuf1B9a9CwOqxx9P9WHXjWEEbIYGC1Xxf5ShQDRsD744_9ciiG35eRqgY5ac',
-      repo: 'bsproul/gitpaid',
+      repo: 'Groundwerk/gitpaid',
       loadSidebar: true,
       subMaxLevel: 2,
       auto2top: true,

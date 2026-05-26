@@ -38,6 +38,6 @@ Connect your Git fork and use the automated wizard to deploy the stack to your C
 
 To begin setting up your project, choose one of the following guides from the navigation sidebar:
 
-*   **[Local Development Setup](local.md)**: Run the project locally on your machine to test it out before deploying.
-*   **[Google Console & OAuth Setup](google.md)**: Configure your Google Developer Account for logins and Gmail stubs.
-*   **[Cloudflare Workers & D1 Deployment](cloudflare.md)**: Deploy your live production instance to Cloudflare.
+*   **[Local Development Setup](local)**: Run the project locally on your machine to test it out before deploying.
+*   **[Google Console & OAuth Setup](google)**: Configure your Google Developer Account for logins and Gmail stubs.
+*   **[Cloudflare Workers & D1 Deployment](cloudflare)**: Deploy your live production instance to Cloudflare.
