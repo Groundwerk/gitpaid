@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Mobile Drawer Backdrop */}
       {mobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-40 z-30 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
@@ -56,13 +56,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             OP
           </div>
           <div>
-            <h1 className="font-semibold text-lg text-primary tracking-tight">Ontario Payroll</h1>
-            <p className="text-xs text-on-surface-variant font-medium">Business Portal</p>
+            <h1 className="font-semibold text-lg text-primary tracking-tight">Gitpaid</h1>
+            <p className="text-xs text-on-surface-variant font-medium">Payroll Portal</p>
           </div>
         </div>
 
         {/* Quick Action: Run Payroll */}
-        <button 
+        <button
           onClick={onRunPayrollClick}
           className="w-full mb-6 bg-primary text-on-primary font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_4px_12px_rgba(0,30,64,0.1)] active:scale-95 duration-100"
         >
@@ -80,13 +80,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleTabClick(item.id)}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left w-full
-                  ${isActive 
-                    ? 'bg-primary text-on-primary font-bold shadow-sm' 
+                  ${isActive
+                    ? 'bg-primary text-on-primary font-bold shadow-sm'
                     : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                   }
                 `}
               >
-                <span 
+                <span
                   className="material-symbols-outlined text-[20px]"
                   style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                 >
@@ -102,10 +102,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="mt-auto pt-4 border-t border-outline-variant flex flex-col gap-2">
           <div className="flex items-center gap-3 px-4 py-2 text-on-surface-variant text-sm font-medium">
             {userAvatar ? (
-              <img 
-                src={userAvatar} 
-                className="w-6 h-6 rounded-full object-cover border border-outline-variant" 
-                alt="User" 
+              <img
+                src={userAvatar}
+                className="w-6 h-6 rounded-full object-cover border border-outline-variant"
+                alt="User"
               />
             ) : (
               <span className="material-symbols-outlined text-[20px]">account_circle</span>
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="truncate max-w-[150px]">{userName}</span>
           </div>
           {onLogout && (
-            <button 
+            <button
               onClick={onLogout}
               className="flex items-center gap-3 px-4 py-2 rounded-xl text-on-surface-variant hover:bg-red-50 hover:text-error transition-all duration-200 text-left w-full font-bold"
             >

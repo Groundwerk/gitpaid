@@ -104,6 +104,69 @@ export const api = {
   getT4ExportUrl: () => 
     `${API_BASE}/reports/t4/export`,
 
+  getNetPayReportUrl: (runId: number, paymentMethods: string) => 
+    `${API_BASE}/reports/net-pay?run_id=${runId}&payment_methods=${encodeURIComponent(paymentMethods)}&format=pdf`,
+  
+  getNetPayReportData: (runId: number, paymentMethods: string) => 
+    request<any>(`/reports/net-pay?run_id=${runId}&payment_methods=${encodeURIComponent(paymentMethods)}`),
+
+  getPayRunSummaryUrl: (runId: number) => 
+    `${API_BASE}/reports/pay-run-summary?run_id=${runId}&format=pdf`,
+
+  getPayRunSummaryData: (runId: number) => 
+    request<any>(`/reports/pay-run-summary?run_id=${runId}`),
+
+  getPayStatementUrl: (runId: string | number, employeeId: string | number, paymentMethods: string) => 
+    `${API_BASE}/reports/pay-statement?run_id=${runId}&employee_id=${employeeId}&payment_methods=${encodeURIComponent(paymentMethods)}`,
+
+  getRemittanceReportUrl: (startDate: string, endDate: string) => 
+    `${API_BASE}/reports/remittance-report?start_date=${startDate}&end_date=${endDate}&format=pdf`,
+
+  getRemittanceReportData: (startDate: string, endDate: string) => 
+    request<any>(`/reports/remittance-report?start_date=${startDate}&end_date=${endDate}`),
+
+  getHealthTaxReportUrl: (year: string | number) => 
+    `${API_BASE}/reports/health-tax-report?tax_year=${year}&format=pdf`,
+
+  getHealthTaxReportData: (year: string | number) => 
+    request<any>(`/reports/health-tax-report?tax_year=${year}`),
+
+  getDeductionsExpensesSummaryUrl: (payGroupIds: string, startDate: string, endDate: string) => 
+    `${API_BASE}/reports/deductions-expenses-summary?pay_group_ids=${encodeURIComponent(payGroupIds)}&start_date=${startDate}&end_date=${endDate}&format=pdf`,
+
+  getDeductionsExpensesSummaryData: (payGroupIds: string, startDate: string, endDate: string) => 
+    request<any>(`/reports/deductions-expenses-summary?pay_group_ids=${encodeURIComponent(payGroupIds)}&start_date=${startDate}&end_date=${endDate}`),
+
+  getEmployeeInformationReportUrl: (payGroupIds: string, startDate?: string, endDate?: string) => 
+    `${API_BASE}/reports/employee-information?pay_group_ids=${encodeURIComponent(payGroupIds)}${startDate ? `&start_date=${startDate}` : ''}${endDate ? `&end_date=${endDate}` : ''}&format=pdf`,
+
+  getEmployeeInformationReportData: (payGroupIds: string, startDate?: string, endDate?: string) => 
+    request<any>(`/reports/employee-information?pay_group_ids=${encodeURIComponent(payGroupIds)}${startDate ? `&start_date=${startDate}` : ''}${endDate ? `&end_date=${endDate}` : ''}`),
+
+  getEmployeeVarianceReportUrl: (runId: string | number, employeeId: string) => 
+    `${API_BASE}/reports/employee-variance?run_id=${runId}&employee_id=${employeeId}&format=pdf`,
+
+  getEmployeeVarianceReportData: (runId: string | number, employeeId: string) => 
+    request<any>(`/reports/employee-variance?run_id=${runId}&employee_id=${employeeId}`),
+
+  getPayrollDetailReportUrl: (payGroupIds: string, startDate: string, endDate: string) => 
+    `${API_BASE}/reports/payroll-detail?pay_group_ids=${encodeURIComponent(payGroupIds)}&start_date=${startDate}&end_date=${endDate}&format=pdf`,
+
+  getPayrollDetailReportData: (payGroupIds: string, startDate: string, endDate: string) => 
+    request<any>(`/reports/payroll-detail?pay_group_ids=${encodeURIComponent(payGroupIds)}&start_date=${startDate}&end_date=${endDate}`),
+
+  getPayrollVarianceReportUrl: (runId: string | number) => 
+    `${API_BASE}/reports/payroll-variance?run_id=${runId}&format=pdf`,
+
+  getPayrollVarianceReportData: (runId: string | number) => 
+    request<any>(`/reports/payroll-variance?run_id=${runId}`),
+
+  getYtdDetailReportUrl: (taxYear: number, payGroupIds: string, employeeId: string) => 
+    `${API_BASE}/reports/ytd-detail?tax_year=${taxYear}&pay_group_ids=${encodeURIComponent(payGroupIds)}&employee_id=${employeeId}&format=pdf`,
+
+  getYtdDetailReportData: (taxYear: number, payGroupIds: string, employeeId: string) => 
+    request<any>(`/reports/ytd-detail?tax_year=${taxYear}&pay_group_ids=${encodeURIComponent(payGroupIds)}&employee_id=${employeeId}`),
+
   emailStubs: (runId: number, employeeIds: number[]) => 
     request<{ message: string; mocked: boolean; results: any[] }>('/reports/email-stubs', {
       method: 'POST',

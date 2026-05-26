@@ -46,7 +46,7 @@ export function getPeriodsPerYear(payPeriod: string): number {
   }
 }
 
-function calculateProgressiveTax(income: number, brackets: { threshold: number; rate: number }[]): number {
+export function calculateProgressiveTax(income: number, brackets: { threshold: number; rate: number }[]): number {
   let tax = 0;
   let remainingIncome = income;
   let previousThreshold = 0;
@@ -73,7 +73,7 @@ function calculateProgressiveTax(income: number, brackets: { threshold: number; 
 }
 
 // 2024 Federal Brackets
-const federalBrackets = [
+export const federalBrackets = [
   { threshold: 55867, rate: 0.15 },
   { threshold: 111733, rate: 0.205 },
   { threshold: 173244, rate: 0.26 },
@@ -82,7 +82,7 @@ const federalBrackets = [
 ];
 
 // 2024 Ontario Brackets
-const ontarioBrackets = [
+export const ontarioBrackets = [
   { threshold: 51446, rate: 0.0505 },
   { threshold: 102894, rate: 0.0915 },
   { threshold: 150000, rate: 0.1116 },

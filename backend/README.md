@@ -27,7 +27,7 @@ The backend router mounts routes at `/api` and is structured as follows:
    - Orchestrates draft payroll calculations, edit updates, D1 transactional commits, run finalizations (which advance pay group schedules), and active-period locked reversals (which rollback YTD stats).
 
 4. **Schedules (`routes/schedules.ts`)**:
-   - Manages timezone-safe UTC rolling pay schedules (Weekly, Bi-weekly, Semi-monthly, Monthly) modeled after Sage Payroll.
+   - Manages timezone-safe UTC rolling pay schedules (Weekly, Bi-weekly, Semi-monthly, Monthly) modeled after Gitpaid Payroll.
 
 5. **Compliance & Reports (`routes/reports.ts`)**:
    - Exposes cumulative YTD summaries, CRA/WSIB/EHT outstanding active/upcoming liabilities, D1 remittance payments logging, JWT-authorized paystub PDF streams, and T4 XML serializations.
