@@ -1,0 +1,14 @@
+{
+  "name": "gitpaid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ontario Payroll Solution - Monorepo",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:migrate:local": "cd backend && npx wrangler d1 migrations apply DB --local",
+    "build": "cd frontend && npm install && VITE_API_URL=/api npm run build && mkdir -p ../backend/public && rm -rf ../backend/public/* && cp -r dist/* ../backend/public/",
+    "deploy": "cd backend && npm install && cd .. && npx wrangler d1 migrations apply DB --remote && npx wrangler deploy",
+    "postdeploy": "echo '\n⚠️  IMPORTANT: Set your secrets if you have not already:\n  cd backend\n  npx wrangler secret put JWT_SECRET\n  npx wrangler secret put GOOGLE_CLIENT_ID\n  npx wrangler secret put GMAIL_CLIENT_SECRET\n'"
+  }
+}

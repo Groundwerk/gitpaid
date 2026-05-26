@@ -1,0 +1,8 @@
+# Encryption key for JWT sessions (e.g. any random 32-character string)
+JWT_SECRET=
+
+# Google Developer Console OAuth Client ID
+GOOGLE_CLIENT_ID=
+
+# Google Developer Console OAuth Client Secret for Gmail API refreshes
+GMAIL_CLIENT_SECRET=

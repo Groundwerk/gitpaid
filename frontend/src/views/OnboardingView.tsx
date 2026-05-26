@@ -175,7 +175,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 relative px-4">
-          <div className="absolute left-8 right-8 top-1/2 h-0.5 bg-outline-variant -translate-y-1/2 z-0">
+          <div className="absolute left-8 right-8 h-0.5 bg-outline-variant -translate-y-1/2 z-0" style={{ top: '16px' }}>
             <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(step - 1) * 33.33}%` }}></div>
           </div>
 

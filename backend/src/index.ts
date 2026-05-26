@@ -37,6 +37,10 @@ app.use('/api/*', async (c, next) => {
     return c.json({ error: 'Authorization header is required' }, 401);
   }
 
+  if (!c.env.JWT_SECRET) {
+    return c.json({ error: 'JWT_SECRET environment variable is missing on the server. Please set it using wrangler secret put JWT_SECRET.' }, 500);
+  }
+
   const jwtMiddleware = jwt({ secret: c.env.JWT_SECRET, alg: 'HS256' });
   return jwtMiddleware(c, next);
 });
@@ -51,7 +55,16 @@ app.route('/api/pay-groups', schedulesRouter);
 
 // Health check
 app.get('/api/health', (c) => {
-  return c.json({ status: 'healthy', worker: 'Cloudflare', timestamp: new Date().toISOString() });
+  return c.json({
+    status: 'healthy',
+    worker: 'Cloudflare',
+    timestamp: new Date().toISOString(),
+    config: {
+      jwtSecretSet: !!c.env.JWT_SECRET,
+      googleClientIdSet: !!c.env.GOOGLE_CLIENT_ID,
+      gmailClientSecretSet: !!c.env.GMAIL_CLIENT_SECRET
+    }
+  });
 });
 
 // SPA catch-all: serve index.html for any non-API route

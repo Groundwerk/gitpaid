@@ -89,12 +89,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </p>
 
         {loading ? (
-          <div className="flex flex-col items-center gap-3 py-6">
+          <div key="loading-container" className="flex flex-col items-center gap-3 py-6">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             <p className="text-xs text-on-surface-variant font-medium">Verifying credentials...</p>
           </div>
         ) : (
-          <div className="w-full flex flex-col items-center gap-6">
+          <div key="login-form-container" className="w-full flex flex-col items-center gap-6">
             {/* Google Identity Services Render Target */}
             <div id="google-signin-button" className="min-h-[40px] flex items-center justify-center"></div>
 
