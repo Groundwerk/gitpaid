@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gitpaid Guide | Ontario Payroll. Free. Open Source.</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Ontario Payroll Solution Documentation Guide">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <style>
+    :root {
+      --theme-color: #0059bb;
+    }
+    .sidebar {
+      background-color: #f8f9ff !important;
+      border-right: 1px solid #e5eeff;
+    }
+    .markdown-section {
+      max-width: 800px;
+    }
+    /* Simple styling overrides to match corporate theme */
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+    }
+    .sidebar-toggle {
+      background-color: transparent !important;
+    }
+    .app-name-link img {
+      max-width: 32px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Loading Gitpaid Guide...</div>
+  <script>
+    window.$docsify = {
+      name: 'Gitpaid Docs',
+      logo: 'https://lh3.googleusercontent.com/aida/ADBb0ujdiLK8UHV_xZbaMJ2zjubhJYv7dbLDNCKO0FKZy-mwSzs4jNc4mBo_9hMrHOkXXVt4CYtGMve5IuXBg1zzRs2gs3iHzZhnN2JN0x-zDcPpubu5FqO27tr4Vc_1r-N3hUyMGNBJjvCBmrl7WB_1E2W4yQNfXNsl565XQuNSoD_rY8dBPagbD5EDNplnA0GAuf1B9a9CwOqxx9P9WHXjWEEbIYGC1Xxf5ShQDRsD744_9ciiG35eRqgY5ac',
+      repo: 'bsproul/gitpaid',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      auto2top: true,
+      homepage: 'README.md',
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search documentation...',
+        noData: 'No results found!',
+        depth: 4
+      }
+    }
+  </script>
+  <!-- Docsify v4 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  <!-- Search plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+</body>
+</html>
