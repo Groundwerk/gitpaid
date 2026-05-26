@@ -6,3 +6,6 @@ GOOGLE_CLIENT_ID=123456789-placeholder.apps.googleusercontent.com
 
 # Google Developer Console OAuth Client Secret for Gmail API refreshes
 GMAIL_CLIENT_SECRET=
+
+# Enable mock auth bypass for testing without Google credentials (set to "true" only locally)
+ALLOW_MOCK_LOGIN=true

@@ -8,13 +8,15 @@ const router = new Hono<{
     GOOGLE_CLIENT_ID: string;
     GMAIL_CLIENT_SECRET?: string;
     JWT_SECRET: string;
+    ALLOW_MOCK_LOGIN?: string;
   };
 }>();
 
 // GET /api/auth/config
 router.get('/config', async (c) => {
   return c.json({
-    clientId: c.env.GOOGLE_CLIENT_ID || '123456789-placeholder.apps.googleusercontent.com'
+    clientId: c.env.GOOGLE_CLIENT_ID || '123456789-placeholder.apps.googleusercontent.com',
+    allowMockLogin: c.env.ALLOW_MOCK_LOGIN === 'true'
   });
 });
 
@@ -32,6 +34,9 @@ router.post('/google', async (c) => {
 
     // Mock Token Bypass for Testing and local verification
     if (idToken.startsWith('mock-google-token-')) {
+      if (c.env.ALLOW_MOCK_LOGIN !== 'true') {
+        return c.json({ error: 'Mock login bypass is disabled in this environment' }, 401);
+      }
       const slug = idToken.replace('mock-google-token-', '');
       email = `${slug}@company.com`.toLowerCase();
       name = slug.charAt(0).toUpperCase() + slug.slice(1);

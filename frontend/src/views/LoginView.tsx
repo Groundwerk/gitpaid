@@ -12,36 +12,52 @@ export const LoginView: React.FC<LoginViewProps> = ({
 }) => {
   const [bypassToken, setBypassToken] = useState('mock-google-token-admin');
   const [loading, setLoading] = useState(false);
+  const [allowBypass, setAllowBypass] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    // Check if GIS script loaded and initialize Google Auth Button
-    const initGis = async () => {
+    const fetchConfig = async () => {
       try {
-        // Fetch client ID dynamically from backend
         const configRes = await fetch(`${API_BASE}/auth/config`);
         if (!configRes.ok) throw new Error('Failed to load auth config');
         const configData = await configRes.json() as any;
-        const clientId = configData.clientId;
-
-        if (!active) return;
-
-        const g = (window as any).google;
-        if (g && g.accounts) {
-          g.accounts.id.initialize({
-            client_id: clientId,
-            callback: async (response: any) => {
-              await handleLogin(response.credential);
-            }
-          });
-          g.accounts.id.renderButton(
-            document.getElementById('google-signin-button'),
-            { theme: 'filled_blue', size: 'large', width: 300, shape: 'pill' }
-          );
+        if (active) {
+          setClientId(configData.clientId);
+          setAllowBypass(configData.allowMockLogin && import.meta.env.VITE_ALLOW_BYPASS === 'true');
         }
       } catch (err) {
         console.error('Failed to load OAuth config from backend:', err);
+      }
+    };
+
+    fetchConfig();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    let active = true;
+
+    const initGis = () => {
+      if (!active) return;
+      const g = (window as any).google;
+      if (g && g.accounts) {
+        g.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response: any) => {
+            await handleLogin(response.credential);
+          }
+        });
+        g.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          { theme: 'filled_blue', size: 'large', width: 300, shape: 'pill' }
+        );
       }
     };
 
@@ -57,7 +73,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [clientId]);
 
   const handleLogin = async (idToken: string) => {
     try {
@@ -114,35 +130,39 @@ export const LoginView: React.FC<LoginViewProps> = ({
             {/* Google Identity Services Render Target */}
             <div id="google-signin-button" className="min-h-[40px] flex items-center justify-center"></div>
 
-            <div className="w-full flex items-center my-2">
-              <div className="h-px bg-outline-variant flex-1"></div>
-              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-3">or live test bypass</span>
-              <div className="h-px bg-outline-variant flex-1"></div>
-            </div>
+            {allowBypass && (
+              <>
+                <div className="w-full flex items-center my-2">
+                  <div className="h-px bg-outline-variant flex-1"></div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold px-3">or live test bypass</span>
+                  <div className="h-px bg-outline-variant flex-1"></div>
+                </div>
 
-            {/* Test Bypass Form */}
-            <form onSubmit={handleBypassSubmit} className="w-full flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="bypassToken">
-                  Mock Google Token
-                </label>
-                <input 
-                  type="text" 
-                  id="bypassToken"
-                  value={bypassToken}
-                  onChange={(e) => setBypassToken(e.target.value)}
-                  placeholder="mock-google-token-admin"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent text-center font-mono w-full"
-                />
-              </div>
-              <button 
-                type="submit"
-                className="w-full bg-surface-container-low border border-outline hover:bg-surface-container-high text-xs font-bold py-2.5 px-4 rounded-xl text-primary transition-colors flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[16px]">bug_report</span>
-                Bypass Auth for Live Testing
-              </button>
-            </form>
+                {/* Test Bypass Form */}
+                <form onSubmit={handleBypassSubmit} className="w-full flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="bypassToken">
+                      Mock Google Token
+                    </label>
+                    <input 
+                      type="text" 
+                      id="bypassToken"
+                      value={bypassToken}
+                      onChange={(e) => setBypassToken(e.target.value)}
+                      placeholder="mock-google-token-admin"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent text-center font-mono w-full"
+                    />
+                  </div>
+                  <button 
+                    type="submit"
+                    className="w-full bg-surface-container-low border border-outline hover:bg-surface-container-high text-xs font-bold py-2.5 px-4 rounded-xl text-primary transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">bug_report</span>
+                    Bypass Auth for Live Testing
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         )}
       </div>

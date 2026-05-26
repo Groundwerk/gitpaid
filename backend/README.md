@@ -53,6 +53,7 @@ The Worker expects the following variables inside `.dev.vars` (local dev) or bou
 - `JWT_SECRET` (A secure random string for JWT signatures and AES encryption keys)
 - `GOOGLE_CLIENT_ID` (GCP Client ID)
 - `GMAIL_CLIENT_SECRET` (GCP Client Secret)
+- `ALLOW_MOCK_LOGIN` (Must be set to `"true"` in local `.dev.vars` to allow mock tokens starting with `mock-google-token-` to bypass Google Authentication. Must be unset or not `"true"` in production.)
 
 ### Commands
 Run these commands inside the `backend/` directory:

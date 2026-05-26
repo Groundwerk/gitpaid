@@ -40,12 +40,24 @@ describe('Frontend App Authentication States', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.stubEnv('VITE_ALLOW_BYPASS', 'true');
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith('/auth/config')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ clientId: 'mock-client-id', allowMockLogin: true })
+        } as Response);
+      }
+      return Promise.reject(new Error('Unknown fetch in test'));
+    });
   });
 
   it('renders LoginView when unauthenticated', async () => {
     render(<App />);
     expect(screen.getByText('Ontario Payroll Portal')).toBeInTheDocument();
-    expect(screen.getByText('Bypass Auth for Live Testing')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Bypass Auth for Live Testing')).toBeInTheDocument();
+    });
   });
 
   it('renders OnboardingView when authenticated but missing company settings profile', async () => {

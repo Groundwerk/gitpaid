@@ -54,6 +54,7 @@ The frontend communicates with the Hono backend API.
 - **API Base URL**: Configured in [api.ts](file:///Users/brandon/payroll/frontend/src/utils/api.ts). It defaults to `http://localhost:5001/api` locally, but reads `import.meta.env.VITE_API_URL` at build time.
 - **Session Authentication**: Retrieves the signed JWT session token from local storage and attaches it as a `Bearer` token inside the `Authorization` header on all request intercepts.
 - **Dynamic OAuth Client ID**: Fetches the public Google OAuth client ID dynamically from the backend on load at `/api/auth/config`, bypassing the need to supply the client ID during static asset compilation.
+- **VITE_ALLOW_BYPASS**: A local environment variable that must be set to `"true"` in `frontend/.env` to display the "or live test bypass" form on the login screen. It should be unset or set to `"false"` in production.
 
 ---
 

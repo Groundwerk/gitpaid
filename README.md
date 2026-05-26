@@ -82,15 +82,40 @@ The frontend connects to the backend locally.
 
 ## Live Testing Bypass (No Google Setup Required)
 
-For local development and testing, you do **not** need to register a Google Client ID. A mock token bypass is built into the system.
+For local development and testing, you do **not** need to register a Google Client ID or use live Google authentication. A mock token bypass is built into the system but is strictly gated and **completely disabled in production**.
+
+### Enabling the Bypass (Local Development Only)
+
+To show and use the bypass locally, you must set the following environment variables in your local configurations:
+
+1. **Frontend (`frontend/.env`)**:
+   ```env
+   VITE_ALLOW_BYPASS="true"
+   ```
+2. **Backend (`backend/.dev.vars`)**:
+   ```env
+   ALLOW_MOCK_LOGIN="true"
+   ```
+
+*Note: These files are ignored by git (via `.gitignore`) to prevent security configurations from leaking.*
+
+### Using the Bypass
 
 1. Open the login screen (`http://localhost:5173`).
-2. Under **"or live test bypass"**, enter a mock token.
+2. Under **"or live test bypass"** (which will only be rendered if both environment variables are set to `"true"`), enter a mock token.
 3. Standard bypass tokens include:
    - `mock-google-token-admin`
    - `mock-google-token-testuser`
 4. Click **"Bypass Auth for Live Testing"**.
 5. This registers a mock user and automatically redirects to the stepped Company Settings Onboarding Wizard (if logging in for the first time) or directly into the Ontario Dashboard.
+
+### Production Security
+
+When deployed to production:
+- The mock login form is completely hidden on the frontend.
+- The backend API rejects any mock tokens (e.g. starting with `mock-google-token-`) with a `401 Unauthorized` error if `ALLOW_MOCK_LOGIN` is not explicitly set to `"true"` on the production environment.
+- This dual-gated design ensures that the bypass code remains fully inert and invisible when deployed.
+
 
 ---
 

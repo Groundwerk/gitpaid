@@ -144,7 +144,8 @@ describe('2. Hono REST API Routes Integration', () => {
   const testEnv = {
     DB: mockDb as any,
     JWT_SECRET: 'test-secret-12345',
-    GOOGLE_CLIENT_ID: 'test-client-id'
+    GOOGLE_CLIENT_ID: 'test-client-id',
+    ALLOW_MOCK_LOGIN: 'true'
   };
 
   it('GET /api/health should return worker identity status', async () => {

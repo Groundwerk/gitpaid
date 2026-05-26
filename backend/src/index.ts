@@ -12,7 +12,9 @@ const app = new Hono<{
   Bindings: {
     DB: D1Database;
     GOOGLE_CLIENT_ID: string;
+    GMAIL_CLIENT_SECRET?: string;
     JWT_SECRET: string;
+    ALLOW_MOCK_LOGIN?: string;
     ASSETS: Fetcher;
   };
 }>();
