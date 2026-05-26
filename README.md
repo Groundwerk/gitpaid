@@ -35,36 +35,31 @@ Follow these steps to run the application locally on your machine.
 ### Step 1: Run D1 Database Migrations
 The backend uses Cloudflare D1 for data storage. Apply migrations locally to create the tables.
 
-1. Navigate to the backend folder:
+1. Install root dependencies and run local migrations:
    ```bash
-   cd backend
+   npm install
+   npm run db:migrate:local
    ```
-2. Apply migrations locally:
-   ```bash
-   npx wrangler d1 migrations apply payroll_db --local
-   ```
-
-*Note: For production, omit `--local` to apply them to your cloud database.*
+   *(This automatically navigates to the backend folder and executes `npx wrangler d1 migrations apply DB --local` on the local database.)*
 
 ---
 
-### Step 2: Start the Backend (Cloudflare Worker Dev Server)
+### Step 2: Start the Backend (Hono Dev Server)
 The backend runs on Hono and simulates a Cloudflare Worker locally using Wrangler.
 
-1. In the `backend` folder, create `.dev.vars` to bind environment variables locally:
+1. In the `backend` folder, copy the local environment variables template:
    ```bash
-   echo "JWT_SECRET=local-jwt-development-secret-key-12345" > .dev.vars
-   echo "GOOGLE_CLIENT_ID=123456789-placeholder.apps.googleusercontent.com" >> .dev.vars
+   cp backend/.dev.vars.example backend/.dev.vars
    ```
-2. Run the dev server:
+2. Start the backend development server from the repository root:
    ```bash
-   npm run dev
+   npm run dev:backend
    ```
    The backend will start and listen on **`http://localhost:5001`**.
 
 3. To run backend tests:
    ```bash
-   npm test
+   npm --prefix backend test
    ```
 
 ---
@@ -72,30 +67,22 @@ The backend runs on Hono and simulates a Cloudflare Worker locally using Wrangle
 ### Step 3: Start the Frontend (Vite App)
 The frontend connects to the backend locally.
 
-1. Open a new terminal and navigate to the frontend folder:
+1. Start the Vite dev server from the repository root:
    ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite server:
-   ```bash
-   npm run dev
+   npm run dev:frontend
    ```
    The frontend will start and open on **`http://localhost:5173`**.
 
-4. To run frontend tests:
+2. To run frontend tests:
    ```bash
-   npm test
+   npm --prefix frontend test
    ```
 
 ---
 
 ## Live Testing Bypass (No Google Setup Required)
 
-For local development and testing, you do **not** need to register a GCP Google Client ID. A mock token bypass is built into the system.
+For local development and testing, you do **not** need to register a Google Client ID. A mock token bypass is built into the system.
 
 1. Open the login screen (`http://localhost:5173`).
 2. Under **"or live test bypass"**, enter a mock token.
@@ -107,69 +94,89 @@ For local development and testing, you do **not** need to register a GCP Google 
 
 ---
 
+## Google Developer Console Configuration (Prerequisites)
+
+To enable Google Authentication and send paystub emails using the Gmail API, you must configure your OAuth client on the Google Cloud Console.
+
+### 1. Configure the OAuth Consent Screen
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project and navigate to **APIs & Services** > **OAuth Consent Screen**.
+3. Select User Type (**Internal** for organizations, **External** for testing).
+4. Add the scope `https://www.googleapis.com/auth/gmail.send`.
+5. Add your sender Gmail address under **Test users**.
+
+### 2. Create OAuth Credentials
+1. Go to **APIs & Services** > **Credentials** > **Create Credentials** > **OAuth Client ID**.
+2. Select **Web Application** as the application type.
+3. Register the Authorized Origins:
+   * **Authorized JavaScript origins**:
+     * `http://localhost:5173` (Local frontend dev)
+     * `http://localhost:5001` (Local backend dev)
+     * `https://your-worker-name.your-subdomain.workers.dev` (Production backend/frontend URL)
+   * **Authorized redirect URIs**:
+     * `http://localhost:5001/api/auth/google/callback` (Local authentication callback)
+     * `https://your-worker-name.your-subdomain.workers.dev/api/auth/google/callback` (Production callback)
+4. Copy the generated **Client ID** and **Client Secret**.
+
+---
+
 ## Deploying to Cloudflare Production
 
-### 1. Database Setup
-Create the D1 database instance in your Cloudflare dashboard or via Wrangler:
-```bash
-npx wrangler d1 create payroll_db
-```
-Update your `backend/wrangler.toml` file with the generated `database_id`.
+You can deploy the full-stack monorepo to Cloudflare using the automated deploy button, or manually from your CLI.
 
-### 2. Apply Production Migrations
-Apply the SQL DDL schema to your cloud instance:
-```bash
-npx wrangler d1 migrations apply payroll_db --remote
-```
+### Option 1: Using the "Deploy to Cloudflare" Button (Automatic)
+The button handles the provisioning and connection of resources automatically:
 
-### 3. Set Production Secrets & Google Settings
-To enable JWT authentication and send paystub emails using the Gmail API, you must configure the following secret variables in Cloudflare.
+1. Click the **Deploy to Cloudflare Workers** button at the top of the README.
+2. The wizard will prompt you to authorize GitHub and will clone the repository under a new name (e.g. `payroll-backend`) in your GitHub account.
+3. The wizard will automatically provision a new D1 database instance and bind it as `DB` to your Worker.
+4. The wizard will detect `.dev.vars.example` and securely prompt you to input the required secrets:
+   * `JWT_SECRET` (A random string for session tokens)
+   * `GOOGLE_CLIENT_ID` (Your Google Client ID)
+   * `GMAIL_CLIENT_SECRET` (Your Google Client Secret)
+5. Cloudflare will build the Vite frontend, bundle it with the Hono worker, automatically apply the D1 database migrations remote-side, and publish the worker.
+6. **Subsequent Deploys**: Any future commits pushed to the newly created GitHub repository will automatically trigger a build, apply migrations, and redeploy.
 
-#### A. Google Developer Console Configuration:
-1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
-2. Enable the **Gmail API** under **APIs & Services**.
-3. Configure the **OAuth Consent Screen** (internal or external), adding `https://www.googleapis.com/auth/gmail.send` as a scope, and add your test Gmail sender address as a test user.
-4. Create an **OAuth Client ID** (Credential type: *Web Application* or *Desktop Application*) and copy the **Client ID** and **Client Secret**.
+---
 
-#### B. Generate Gmail Refresh Token:
-Access tokens expire after 1 hour, so the backend uses a Refresh Token to generate access tokens programmatically:
-1. Go to the [Google OAuth Playground](https://developers.google.com/oauthplayground/).
-2. Click the gear icon in the top right, check **Use your own OAuth credentials**, and input your Google OAuth **Client ID** and **Client Secret**.
-3. Select and authorize the `https://www.googleapis.com/auth/gmail.send` API scope using the sender Gmail account.
-4. Click **Exchange authorization code for tokens** and copy the **Refresh Token**.
+### Option 2: Manual Deployment from CLI
+To deploy directly from your local terminal without hardcoding credentials in Git:
 
-#### C. Set Wrangler secrets:
-Run these commands from your local terminal to bind the secrets securely to your Cloudflare Worker:
-```bash
-npx wrangler secret put JWT_SECRET
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GMAIL_CLIENT_ID
-npx wrangler secret put GMAIL_CLIENT_SECRET
-npx wrangler secret put GMAIL_REFRESH_TOKEN
-```
+1. **Add config file to `.gitignore`**:
+   Add `wrangler.production.toml` to your `.gitignore` so your production IDs are never committed.
 
-### 4. Deploy the Backend Worker
-Deploy Hono backend code to Cloudflare Workers:
-```bash
-cd backend
-npx wrangler deploy
-```
-
-### 5. Deploy the Frontend
-Build the production bundle of the frontend assets and publish them to Cloudflare Pages:
-1. Navigate to the frontend directory:
+2. **Create the production D1 Database**:
+   Create the D1 database instance using Wrangler:
    ```bash
-   cd frontend
+   npx wrangler d1 create payroll_db
    ```
-2. Build the optimized static assets:
+   Copy the generated `database_id` from the terminal output.
+
+3. **Create `wrangler.production.toml` at the root**:
+   Duplicate the root `wrangler.toml` file, name the copy `wrangler.production.toml`, and replace the `database_id` placeholder with your actual production D1 database ID:
+   ```toml
+   [[d1_databases]]
+   binding = "DB"
+   database_name = "payroll_db"
+   database_id = "your-actual-database-id-here"
+   migrations_dir = "backend/migrations"
+   ```
+
+4. **Deploy and run migrations**:
+   Compile the frontend assets, apply migrations remote-side, and deploy the worker using the production configuration:
    ```bash
    npm run build
+   npx wrangler d1 migrations apply DB --remote --config wrangler.production.toml
+   npx wrangler deploy --config wrangler.production.toml
    ```
-3. Deploy the `dist/` directory to Cloudflare Pages:
+
+5. **Configure Production Secrets**:
+   Upload your secrets securely to your Cloudflare Worker:
    ```bash
-   npx wrangler pages deploy dist
+   npx wrangler secret put JWT_SECRET --config wrangler.production.toml
+   npx wrangler secret put GOOGLE_CLIENT_ID --config wrangler.production.toml
+   npx wrangler secret put GMAIL_CLIENT_SECRET --config wrangler.production.toml
    ```
-4. Define the frontend environment variable `VITE_API_URL` pointing to your deployed Hono backend URL (e.g. `https://payroll-backend.yourname.workers.dev/api`).
 
 ---
 
