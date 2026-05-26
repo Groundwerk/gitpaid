@@ -14,21 +14,34 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     // Check if GIS script loaded and initialize Google Auth Button
-    const initGis = () => {
-      const g = (window as any).google;
-      if (g && g.accounts) {
-        g.accounts.id.initialize({
-          // Placeholder client_id. Can override in settings if needed.
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '123456789-placeholder.apps.googleusercontent.com',
-          callback: async (response: any) => {
-            await handleLogin(response.credential);
-          }
-        });
-        g.accounts.id.renderButton(
-          document.getElementById('google-signin-button'),
-          { theme: 'filled_blue', size: 'large', width: 300, shape: 'pill' }
-        );
+    const initGis = async () => {
+      try {
+        // Fetch client ID dynamically from backend
+        const configRes = await fetch(`${API_BASE}/auth/config`);
+        if (!configRes.ok) throw new Error('Failed to load auth config');
+        const configData = await configRes.json() as any;
+        const clientId = configData.clientId;
+
+        if (!active) return;
+
+        const g = (window as any).google;
+        if (g && g.accounts) {
+          g.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (response: any) => {
+              await handleLogin(response.credential);
+            }
+          });
+          g.accounts.id.renderButton(
+            document.getElementById('google-signin-button'),
+            { theme: 'filled_blue', size: 'large', width: 300, shape: 'pill' }
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load OAuth config from backend:', err);
       }
     };
 
@@ -40,7 +53,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
       }
     }, 100);
 
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const handleLogin = async (idToken: string) => {

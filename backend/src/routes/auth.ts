@@ -11,6 +11,13 @@ const router = new Hono<{
   };
 }>();
 
+// GET /api/auth/config
+router.get('/config', async (c) => {
+  return c.json({
+    clientId: c.env.GOOGLE_CLIENT_ID || '123456789-placeholder.apps.googleusercontent.com'
+  });
+});
+
 // POST /api/auth/google
 router.post('/google', async (c) => {
   try {
