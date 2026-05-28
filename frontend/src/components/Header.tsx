@@ -37,19 +37,19 @@ export const Header: React.FC<HeaderProps> = ({
         <nav className="hidden sm:flex items-end h-full gap-6 pt-4 self-stretch">
           <button 
             onClick={() => setActiveTab('dashboard')}
-            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Overview
           </button>
           <button 
             onClick={() => setActiveTab('reports')}
-            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'reports' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'reports' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Reports
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+            className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             Compliance Config
           </button>
@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
         {activeTab === 'employees' && (
           <button 
             onClick={onNewEmployeeClick}
-            className="bg-primary hover:bg-opacity-90 text-on-primary text-xs font-semibold h-9 px-4 rounded-lg shadow-sm transition-all flex items-center gap-2"
+            className="bg-highlight hover:bg-opacity-90 text-on-highlight text-xs font-semibold h-9 px-4 rounded-lg shadow-sm transition-all flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
             New Employee

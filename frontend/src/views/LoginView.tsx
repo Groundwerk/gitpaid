@@ -111,8 +111,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
     <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="bg-surface-container-lowest border border-outline-variant shadow-lg rounded-2xl p-8 max-w-md w-full flex flex-col items-center">
         {/* Brand Logo */}
-        <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-on-primary font-bold text-lg shadow-sm mb-4">
-          OP
+        <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-surface-container-low border border-outline-variant/50 shadow-sm mb-4">
+          <img
+            src="/gitpaid.png"
+            className="w-10 h-10 object-contain"
+            alt="Gitpaid Logo"
+          />
         </div>
         
         <h2 className="text-2xl font-bold text-primary tracking-tight text-center mb-1">Ontario Payroll Portal</h2>
@@ -122,7 +126,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
         {loading ? (
           <div key="loading-container" className="flex flex-col items-center gap-3 py-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
             <p className="text-xs text-on-surface-variant font-medium">Verifying credentials...</p>
           </div>
         ) : (
@@ -150,7 +154,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       value={bypassToken}
                       onChange={(e) => setBypassToken(e.target.value)}
                       placeholder="mock-google-token-admin"
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent text-center font-mono w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent text-center font-mono w-full"
                     />
                   </div>
                   <button 

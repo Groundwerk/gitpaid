@@ -9,6 +9,9 @@ interface SidebarProps {
   userName?: string;
   userAvatar?: string;
   onLogout?: () => void;
+  brandLogo?: string | null;
+  companyDisplayName?: string;
+  useCompanyBranding?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -19,7 +22,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMobileOpen,
   userName = 'Administrator',
   userAvatar = '',
-  onLogout
+  onLogout,
+  brandLogo,
+  companyDisplayName,
+  useCompanyBranding = false
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -33,6 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setActiveTab(tabId);
     setMobileOpen(false);
   };
+
+  const portalTitle = useCompanyBranding && companyDisplayName ? companyDisplayName : 'Gitpaid';
 
   return (
     <>
@@ -52,11 +60,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       `}>
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-2 mb-8">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold shadow-sm">
-            OP
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-surface-container-low border border-outline-variant/50 shadow-sm flex-shrink-0">
+            {brandLogo ? (
+              <img
+                src={brandLogo}
+                className="w-full h-full object-contain"
+                alt="Company logo"
+              />
+            ) : (
+              <img
+                src="/gitpaid.png"
+                className="w-8 h-8 object-contain"
+                alt="Gitpaid"
+              />
+            )}
           </div>
-          <div>
-            <h1 className="font-semibold text-lg text-primary tracking-tight">Gitpaid</h1>
+          <div className="min-w-0">
+            <h1 className="font-semibold text-lg text-primary tracking-tight leading-tight truncate">{portalTitle}</h1>
             <p className="text-xs text-on-surface-variant font-medium">Payroll Portal</p>
           </div>
         </div>
@@ -64,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Quick Action: Run Payroll */}
         <button
           onClick={onRunPayrollClick}
-          className="w-full mb-6 bg-primary text-on-primary font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_4px_12px_rgba(0,30,64,0.1)] active:scale-95 duration-100"
+          className="w-full mb-6 bg-highlight text-on-highlight font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_4px_12px_rgba(0,30,64,0.1)] active:scale-95 duration-100"
         >
           <span className="material-symbols-outlined text-[18px]">payments</span>
           Run Payroll
@@ -81,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left w-full
                   ${isActive
-                    ? 'bg-primary text-on-primary font-bold shadow-sm'
+                    ? 'bg-highlight text-on-highlight font-bold shadow-sm'
                     : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                   }
                 `}

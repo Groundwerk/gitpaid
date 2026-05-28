@@ -7,10 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        "primary": "#001e40",
-        "primary-container": "#003366",
-        "secondary": "#0059bb",
-        "secondary-container": "#0070ea",
+        "primary": "var(--brand-primary, #001e40)",
+        "primary-container": "var(--brand-primary-container, #003366)",
+        "highlight": "var(--brand-highlight, #001e40)",
+        "highlight-container": "var(--brand-highlight-container, #003366)",
+        "on-highlight": "var(--brand-on-highlight, #ffffff)",
+        "secondary": "var(--brand-secondary, #0059bb)",
+        "secondary-container": "var(--brand-secondary-container, #0070ea)",
         "background": "#f8f9ff",
         "surface": "#f8f9ff",
         "surface-container-lowest": "#ffffff",

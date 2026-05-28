@@ -633,7 +633,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -652,7 +652,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
           onClick={() => setActiveSubTab('compliance')}
           className={`pb-3 text-sm font-bold border-b-2 px-1 transition-all flex items-center gap-2 cursor-pointer bg-transparent border-none ${
             activeSubTab === 'compliance'
-              ? 'border-primary text-primary'
+              ? 'border-highlight text-primary'
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -663,7 +663,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
           onClick={() => setActiveSubTab('payroll-reports')}
           className={`pb-3 text-sm font-bold border-b-2 px-1 transition-all flex items-center gap-2 cursor-pointer bg-transparent border-none ${
             activeSubTab === 'payroll-reports'
-              ? 'border-primary text-primary'
+              ? 'border-highlight text-primary'
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -826,7 +826,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                 <button 
                   onClick={handleDownloadT4}
                   disabled={downloadingT4}
-                  className="bg-primary hover:bg-opacity-95 disabled:opacity-50 text-on-primary font-bold py-2.5 px-6 rounded-lg text-sm shadow-sm flex items-center gap-2 active:scale-95 transition-transform cursor-pointer"
+                  className="bg-highlight hover:bg-opacity-95 disabled:opacity-50 text-on-highlight font-bold py-2.5 px-6 rounded-lg text-sm shadow-sm flex items-center gap-2 active:scale-95 transition-transform cursor-pointer"
                 >
                   <span className="material-symbols-outlined">export_notes</span>
                   {downloadingT4 ? 'Exporting...' : 'Export T4 XML Submission'}
@@ -855,7 +855,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         setPaymentType(e.target.value as any);
                         setPaymentPeriodEnd('');
                       }}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface cursor-pointer"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface cursor-pointer"
                     >
                       <option value="CRA">CRA (CPP, EI, Tax)</option>
                       <option value="WSIB">WSIB (Workers Compensation)</option>
@@ -869,7 +869,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                       type="date"
                       value={paymentDate}
                       onChange={(e) => setPaymentDate(e.target.value)}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                       required
                     />
                   </div>
@@ -882,7 +882,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                       placeholder="0.00"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                       required
                     />
                   </div>
@@ -903,14 +903,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         type="date"
                         value={customPeriodEndDate}
                         onChange={(e) => setCustomPeriodEndDate(e.target.value)}
-                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                         required
                       />
                     ) : (
                       <select
                         value={paymentPeriodEnd}
                         onChange={(e) => setPaymentPeriodEnd(e.target.value)}
-                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface cursor-pointer"
+                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface cursor-pointer"
                         required
                       >
                         <option value="">-- Select Period End --</option>
@@ -927,7 +927,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                   <button
                     type="submit"
                     disabled={loggingPayment}
-                    className="w-full bg-primary text-on-primary font-bold py-2 px-3 rounded-lg text-xs hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 mt-1 cursor-pointer border-none"
+                    className="w-full bg-highlight text-on-highlight font-bold py-2 px-3 rounded-lg text-xs hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 mt-1 cursor-pointer border-none"
                   >
                     <span className="material-symbols-outlined text-[16px]">add_task</span>
                     {loggingPayment ? 'Logging Payment...' : 'Log Remittance Payment'}
@@ -1019,7 +1019,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         onClick={() => handleSelectRun(run.id)}
                         className={`
                           w-full p-4 flex flex-col gap-1 text-left transition-colors bg-transparent border-none cursor-pointer
-                          ${isSelected ? 'bg-primary/5 border-l-4 border-primary pl-3 font-bold' : 'hover:bg-surface-container-low/20'}
+                          ${isSelected ? 'bg-highlight/5 border-l-4 border-highlight pl-3 font-bold' : 'hover:bg-surface-container-low/20'}
                         `}
                       >
                         <div className="flex justify-between items-center">
@@ -1164,7 +1164,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
               <div className="flex-1 overflow-y-auto">
                 {detailsLoading ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
                   </div>
                 ) : runDetails ? (
                   <table className="w-full text-left border-collapse">
@@ -1385,11 +1385,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         setReportData(null);
                       }}
                       className={`w-full p-4 flex flex-col gap-1 text-left transition-all bg-transparent border-none cursor-pointer hover:bg-surface-container-low/20 ${
-                        isSel ? 'bg-primary/5 border-l-4 border-primary pl-3 font-bold' : ''
+                        isSel ? 'bg-highlight/5 border-l-4 border-highlight pl-3 font-bold' : ''
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-[18px] ${isSel ? 'text-primary' : 'text-on-surface-variant'}`}>{rpt.icon}</span>
+                        <span className={`material-symbols-outlined text-[18px] ${isSel ? 'text-highlight' : 'text-on-surface-variant'}`}>{rpt.icon}</span>
                         <span className={`text-xs font-bold ${isSel ? 'text-primary' : 'text-on-surface'}`}>{rpt.label}</span>
                       </div>
                       <span className="text-[10px] text-on-surface-variant leading-tight pl-6">{rpt.desc}</span>
@@ -1419,7 +1419,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                     <select
                       value={reportFilterRunId || ''}
                       onChange={(e) => setReportFilterRunId(e.target.value ? (e.target.value === 'all' ? 'all' as any : Number(e.target.value)) : null)}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface cursor-pointer"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface cursor-pointer"
                     >
                       {selectedReport === 'pay-statement' && (
                         <option value="all">-- All Finalized/Paid Runs --</option>
@@ -1443,7 +1443,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                     <select
                       value={reportFilterEmployeeId}
                       onChange={(e) => setReportFilterEmployeeId(e.target.value)}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface cursor-pointer"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface cursor-pointer"
                     >
                       <option value="all">-- All Employees --</option>
                       {employeesList.map(emp => (
@@ -1462,7 +1462,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         type="date"
                         value={reportFilterStartDate}
                         onChange={(e) => setReportFilterStartDate(e.target.value)}
-                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1471,7 +1471,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                         type="date"
                         value={reportFilterEndDate}
                         onChange={(e) => setReportFilterEndDate(e.target.value)}
-                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                        className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                       />
                     </div>
                   </>
@@ -1484,7 +1484,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                     <select
                       value={reportFilterYear}
                       onChange={(e) => setReportFilterYear(Number(e.target.value))}
-                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface cursor-pointer"
+                      className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface cursor-pointer"
                     >
                       {[2024, 2025, 2026, 2027].map(yr => (
                         <option key={yr} value={yr}>{yr}</option>
@@ -1578,7 +1578,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
                   <button
                     onClick={handleDownloadReportPdf}
                     disabled={downloadingReport}
-                    className="bg-primary text-on-primary hover:bg-opacity-95 disabled:opacity-50 text-xs font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer h-9 shadow-sm border-none"
+                    className="bg-highlight text-on-highlight hover:bg-opacity-95 disabled:opacity-50 text-xs font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer h-9 shadow-sm border-none"
                   >
                     <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
                     {downloadingReport ? 'Downloading...' : 'Download PDF'}
@@ -1603,7 +1603,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
 
               {reportLoading ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 h-48">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
                   <span className="text-xs text-on-surface-variant">Generating report preview...</span>
                 </div>
               ) : reportData ? (

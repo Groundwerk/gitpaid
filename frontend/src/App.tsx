@@ -28,6 +28,10 @@ export const App: React.FC = () => {
     return val && val !== 'null' ? parseInt(val, 10) : null;
   });
   const [companyName, setCompanyName] = useState<string>('My Business');
+  const [brandLogo, setBrandLogo] = useState<string | null>(null);
+  const [brandColor, setBrandColor] = useState<string | null>(null);
+  const [useCompanyBranding, setUseCompanyBranding] = useState<boolean>(false);
+
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -53,7 +57,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Fetch company settings name when companyId is set
+  // Fetch company settings including branding when companyId is set
   useEffect(() => {
     if (token && companyId) {
       api.getSettings()
@@ -61,12 +65,32 @@ export const App: React.FC = () => {
           if (settings && settings.legal_name) {
             setCompanyName(settings.legal_name);
           }
+          setBrandLogo(settings?.logo_url || null);
+          setBrandColor(settings?.brand_color || null);
+          setUseCompanyBranding(settings?.use_company_branding === 1);
         })
         .catch(err => {
           console.error('Failed to load company settings:', err);
         });
     }
   }, [token, companyId]);
+
+  // Inject brand color as CSS variables whenever it changes
+  useEffect(() => {
+    // Explicitly clean up any historical settings of --brand-primary
+    document.documentElement.style.removeProperty('--brand-primary');
+    document.documentElement.style.removeProperty('--brand-primary-container');
+
+    if (brandColor) {
+      document.documentElement.style.setProperty('--brand-highlight', brandColor);
+      // Derive a slightly lighter shade for secondary/container variants
+      document.documentElement.style.setProperty('--brand-highlight-container', brandColor);
+    } else {
+      document.documentElement.style.removeProperty('--brand-highlight');
+      document.documentElement.style.removeProperty('--brand-highlight-container');
+    }
+  }, [brandColor]);
+
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -112,13 +136,20 @@ export const App: React.FC = () => {
     localStorage.removeItem('companyId');
     
     setToken(null);
-
     setUserName(null);
     setUserAvatar(null);
     setCompanyId(null);
     setCompanyName('My Business');
+    setBrandLogo(null);
+    setBrandColor(null);
+    setUseCompanyBranding(false);
+    document.documentElement.style.removeProperty('--brand-highlight');
+    document.documentElement.style.removeProperty('--brand-highlight-container');
+    document.documentElement.style.removeProperty('--brand-primary');
+    document.documentElement.style.removeProperty('--brand-primary-container');
     triggerToast('Signed out successfully.', 'success');
   };
+
 
   const handleSettingsUpdate = () => {
     if (token && companyId) {
@@ -127,10 +158,14 @@ export const App: React.FC = () => {
           if (settings && settings.legal_name) {
             setCompanyName(settings.legal_name);
           }
+          setBrandLogo(settings?.logo_url || null);
+          setBrandColor(settings?.brand_color || null);
+          setUseCompanyBranding(settings?.use_company_branding === 1);
         })
         .catch(err => console.error(err));
     }
   };
+
 
   const navigateToTab = (tabId: string) => {
     // Reset employee subviews when switching tabs
@@ -314,7 +349,11 @@ export const App: React.FC = () => {
         userName={userName || 'Administrator'}
         userAvatar={userAvatar || ''}
         onLogout={handleLogout}
+        brandLogo={brandLogo}
+        companyDisplayName={companyName}
+        useCompanyBranding={useCompanyBranding}
       />
+
 
       {/* Main Content Layout Wrapper */}
       <div className="flex-1 md:ml-[260px] flex flex-col min-h-screen relative w-full md:w-[calc(100%-260px)]">

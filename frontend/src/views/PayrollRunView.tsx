@@ -176,7 +176,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -211,7 +211,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                 <div key={num} className="flex flex-col items-center gap-1.5 w-1/4">
                   <div className={`
                     w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all duration-200 z-10
-                    ${isActive ? 'bg-primary text-on-primary scale-110 ring-4 ring-primary-container' : ''}
+                    ${isActive ? 'bg-highlight text-on-highlight scale-110 ring-4 ring-highlight-container' : ''}
                     ${isCompleted ? 'bg-green-600 text-on-primary' : ''}
                     ${!isActive && !isCompleted ? 'bg-surface-container-high text-on-surface-variant' : ''}
                   `}>
@@ -259,7 +259,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                               type="checkbox" 
                               checked={isSelected}
                               onChange={() => handleSelectToggle(emp.id)}
-                              className="rounded border-outline-variant text-primary focus:ring-primary h-5 w-5 cursor-pointer"
+                              className="rounded border-outline-variant text-highlight focus:ring-highlight h-5 w-5 cursor-pointer"
                             />
                           </td>
                           <td className="py-3 px-4">
@@ -349,7 +349,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                         setSelectedScheduleId(null);
                       }
                     }}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full bg-transparent cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full bg-transparent cursor-pointer"
                   >
                     <option value="">Ad-hoc Run (Custom Dates)</option>
                     {upcomingSchedules.map(sched => (
@@ -366,7 +366,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     value={periodStart}
                     onChange={(e) => setPeriodStart(e.target.value)}
                     disabled={selectedScheduleId !== null}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full disabled:opacity-75 disabled:bg-surface-container-low"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full disabled:opacity-75 disabled:bg-surface-container-low"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -376,13 +376,13 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     value={periodEnd}
                     onChange={(e) => setPeriodEnd(e.target.value)}
                     disabled={selectedScheduleId !== null}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full disabled:opacity-75 disabled:bg-surface-container-low"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight w-full disabled:opacity-75 disabled:bg-surface-container-low"
                   />
                 </div>
                 <div className="mt-4 pt-4 border-t border-outline-variant flex flex-col gap-2">
                   <button 
                     onClick={handleCalculatePreview}
-                    className="w-full bg-primary text-on-primary font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-95 shadow-sm"
+                    className="w-full bg-highlight text-on-highlight font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-95 shadow-sm"
                   >
                     Calculate Preview
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -461,7 +461,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
             </button>
             <button 
               onClick={() => setStep(3)}
-              className="px-5 py-2 bg-primary text-on-primary text-sm font-semibold rounded-lg hover:bg-opacity-95 transition-all shadow-sm"
+              className="px-5 py-2 bg-highlight text-on-highlight text-sm font-semibold rounded-lg hover:bg-opacity-95 transition-all shadow-sm"
             >
               Proceed to Payment
             </button>
@@ -486,7 +486,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     className={`
                       flex items-start gap-4 p-4 border rounded-xl cursor-pointer transition-all duration-150
                       ${paymentMethod === item.id 
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                        ? 'border-highlight bg-highlight/5 ring-2 ring-highlight/20' 
                         : 'border-outline-variant hover:bg-surface-container-low/35'
                       }
                     `}
@@ -501,9 +501,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                     />
                     <div className={`
                       w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5
-                      ${paymentMethod === item.id ? 'border-primary' : 'border-outline'}
+                      ${paymentMethod === item.id ? 'border-highlight' : 'border-outline'}
                     `}>
-                      {paymentMethod === item.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      {paymentMethod === item.id && <div className="w-2.5 h-2.5 rounded-full bg-highlight" />}
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-primary">{item.title}</h4>
@@ -563,7 +563,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
             </button>
             <button 
               onClick={() => setStep(4)}
-              className="px-5 py-2 bg-primary text-on-primary text-sm font-semibold rounded-lg hover:bg-opacity-95 transition-all shadow-sm"
+              className="px-5 py-2 bg-highlight text-on-highlight text-sm font-semibold rounded-lg hover:bg-opacity-95 transition-all shadow-sm"
             >
               Review and Confirm
             </button>

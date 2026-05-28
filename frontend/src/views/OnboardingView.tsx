@@ -176,32 +176,32 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 relative px-4">
           <div className="absolute left-8 right-8 h-0.5 bg-outline-variant -translate-y-1/2 z-0" style={{ top: '16px' }}>
-            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(step - 1) * 33.33}%` }}></div>
+            <div className="h-full bg-highlight transition-all duration-300" style={{ width: `${(step - 1) * 33.33}%` }}></div>
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 1 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 1 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 1 ? <span className="material-symbols-outlined text-[16px]">check</span> : '1'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 1 ? 'text-primary' : 'text-on-surface-variant'}`}>Company</span>
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 2 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 2 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 2 ? <span className="material-symbols-outlined text-[16px]">check</span> : '2'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 2 ? 'text-primary' : 'text-on-surface-variant'}`}>Contact</span>
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 3 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 3 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 3 ? <span className="material-symbols-outlined text-[16px]">check</span> : '3'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 3 ? 'text-primary' : 'text-on-surface-variant'}`}>Payroll &amp; Tax</span>
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 4 ? 'bg-primary text-on-primary' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 4 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               4
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 4 ? 'text-primary' : 'text-on-surface-variant'}`}>Email Stubs</span>
@@ -224,7 +224,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   value={settings.legal_name}
                   onChange={handleChange}
                   placeholder="e.g. Ontario Tech Solutions Inc."
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   required
                 />
               </div>
@@ -239,7 +239,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   value={settings.operating_name}
                   onChange={handleChange}
                   placeholder="e.g. OTS Labs (Leave empty if same as legal)"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                 />
               </div>
 
@@ -253,7 +253,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   value={settings.business_number}
                   onChange={handleChange}
                   placeholder="123456789 RP 0001"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   required
                 />
                 <p className="text-[10px] text-on-surface-variant leading-tight">
@@ -270,7 +270,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     id="business_type"
                     value={settings.business_type || 'Corporation'}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="Corporation">Corporation</option>
                     <option value="Sole Proprietorship">Sole Proprietorship</option>
@@ -288,7 +288,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.owner_sin || ''}
                     onChange={handleChange}
                     placeholder="e.g. 123-456-789"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
@@ -310,7 +310,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.address_line1}
                     onChange={handleChange}
                     placeholder="123 Bay Street"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -323,7 +323,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.address_line2 || ''}
                     onChange={handleChange}
                     placeholder="Suite, Unit, Apt #"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
@@ -339,7 +339,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.city}
                     onChange={handleChange}
                     placeholder="Toronto"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -350,7 +350,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     id="province"
                     value={settings.province || 'ON'}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="ON">Ontario (ON)</option>
                     <option value="AB">Alberta (AB)</option>
@@ -374,7 +374,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.postal_code}
                     onChange={handleChange}
                     placeholder="M5H 2Y2"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
@@ -394,7 +394,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     value={settings.contact_name}
                     onChange={handleChange}
                     placeholder="Jane Doe"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     required
                   />
                 </div>
@@ -409,7 +409,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       value={settings.contact_email}
                       onChange={handleChange}
                       placeholder="payroll@yourcompany.ca"
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                       required
                     />
                   </div>
@@ -423,7 +423,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       value={settings.contact_phone || ''}
                       onChange={handleChange}
                       placeholder="e.g. 416-555-0199"
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     />
                   </div>
                 </div>
@@ -444,7 +444,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     id="pay_period" 
                     value={settings.pay_period} 
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="weekly">Weekly</option>
                     <option value="bi-weekly">Bi-weekly</option>
@@ -463,7 +463,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     id="vacation_rate"
                     value={settings.vacation_rate}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                   <p className="text-[9px] text-on-surface-variant">Ontario minimum is 4.0% (2 weeks vacation).</p>
                 </div>
@@ -482,7 +482,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       value={settings.wsib_number}
                       onChange={handleChange}
                       placeholder="e.g. 123456789"
-                      className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -495,7 +495,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       id="wsib_rate"
                       value={settings.wsib_rate}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 </div>
@@ -511,8 +511,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         onChange={handleChange}
                         className="peer sr-only"
                       />
-                      <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                      <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                      <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                      <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Claim EHT Exemption</span>
@@ -532,7 +532,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       id="eht_rate"
                       value={settings.eht_rate}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 </div>
@@ -547,7 +547,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       id="remittance_frequency"
                       value={settings.remittance_frequency || 'monthly'}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                     >
                       <option value="quarterly">Quarterly</option>
                       <option value="monthly">Monthly</option>
@@ -565,7 +565,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       id="override_ei_employer_rate"
                       value={settings.override_ei_employer_rate !== undefined ? settings.override_ei_employer_rate : 1.4}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                     <p className="text-[9px] text-on-surface-variant">Default is 1.4. Applied as match multiplier on employee EI deduction.</p>
                   </div>
@@ -576,7 +576,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
           {step === 4 && (
             <div className="flex flex-col items-center text-center gap-6 animate-fade-in py-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className="w-16 h-16 rounded-full bg-highlight/10 flex items-center justify-center text-highlight">
                 <span className="material-symbols-outlined text-3xl">mail</span>
               </div>
               <div>
@@ -594,11 +594,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   type="button"
                   onClick={handleConnectGmail}
                   disabled={connectingGmail}
-                  className="w-full h-11 bg-primary text-on-primary rounded-xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-sm flex items-center justify-center gap-2"
+                  className="w-full h-11 bg-highlight text-on-highlight rounded-xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-sm flex items-center justify-center gap-2"
                 >
                   {connectingGmail ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-primary"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-highlight"></div>
                       Connecting...
                     </>
                   ) : (
@@ -612,7 +612,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 <button
                   type="button"
                   onClick={handleSkipGmail}
-                  className="w-full h-11 border border-outline-variant hover:bg-surface-container-low rounded-xl font-bold text-sm text-primary transition-colors"
+                  className="w-full h-11 border border-outline-variant hover:bg-surface-container-low rounded-xl font-bold text-sm text-highlight transition-colors"
                 >
                   Skip &amp; Go to Dashboard
                 </button>
@@ -627,7 +627,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 <button 
                   type="button" 
                   onClick={handleBack}
-                  className="px-5 py-2.5 rounded-xl border border-outline-variant hover:bg-surface-container-low text-xs font-bold text-primary transition-colors flex items-center gap-1"
+                  className="px-5 py-2.5 rounded-xl border border-outline-variant hover:bg-surface-container-low text-xs font-bold text-highlight transition-colors flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                   Back
@@ -640,7 +640,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 <button 
                   type="button" 
                   onClick={handleNext}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm flex items-center gap-1"
+                  className="px-5 py-2.5 rounded-xl bg-highlight text-on-highlight text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm flex items-center gap-1"
                 >
                   Continue
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -649,11 +649,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 <button 
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1"
+                  className="px-6 py-2.5 rounded-xl bg-highlight text-on-highlight text-xs font-bold hover:bg-opacity-90 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1"
                 >
                   {saving ? (
                     <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-on-secondary mr-1"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-on-highlight mr-1"></div>
                       Setting up...
                     </>
                   ) : (

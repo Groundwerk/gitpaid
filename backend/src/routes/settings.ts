@@ -60,7 +60,10 @@ const saveSettings = async (c: any) => {
       contact_phone = null,
       address_line2 = null,
       province = 'ON',
-      override_ei_employer_rate = 1.4
+      override_ei_employer_rate = 1.4,
+      logo_url = null,
+      brand_color = null,
+      use_company_branding = 0
     } = await c.req.json();
 
     if (!legal_name || !business_number) {
@@ -73,8 +76,9 @@ const saveSettings = async (c: any) => {
         INSERT INTO company_settings (
           legal_name, operating_name, business_number, address_line1, city, postal_code,
           contact_name, contact_email, wsib_number, wsib_rate, eht_exempt, eht_rate, vacation_rate, pay_period,
-          owner_sin, business_type, remittance_frequency, contact_phone, address_line2, province, override_ei_employer_rate
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          owner_sin, business_type, remittance_frequency, contact_phone, address_line2, province, override_ei_employer_rate,
+          logo_url, brand_color, use_company_branding
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         legal_name,
         operating_name || null,
@@ -96,7 +100,10 @@ const saveSettings = async (c: any) => {
         contact_phone || null,
         address_line2 || null,
         province || 'ON',
-        parseFloat(override_ei_employer_rate) || 1.4
+        parseFloat(override_ei_employer_rate) || 1.4,
+        logo_url || null,
+        brand_color || null,
+        use_company_branding ? 1 : 0
       ).run();
 
       // Retrieve the newly created ID
@@ -148,7 +155,10 @@ const saveSettings = async (c: any) => {
           contact_phone = ?,
           address_line2 = ?,
           province = ?,
-          override_ei_employer_rate = ?
+          override_ei_employer_rate = ?,
+          logo_url = ?,
+          brand_color = ?,
+          use_company_branding = ?
         WHERE id = ?
       `).bind(
         legal_name,
@@ -172,6 +182,9 @@ const saveSettings = async (c: any) => {
         address_line2,
         province,
         parseFloat(override_ei_employer_rate),
+        logo_url || null,
+        brand_color || null,
+        use_company_branding ? 1 : 0,
         companyId
       ).run();
 

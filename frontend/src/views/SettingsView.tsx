@@ -37,8 +37,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     contact_phone: '',
     address_line2: '',
     province: 'ON',
-    override_ei_employer_rate: 1.4
+    override_ei_employer_rate: 1.4,
+    logo_url: null,
+    brand_color: null,
+    use_company_branding: 0
   });
+
 
   // Pay Groups & Schedules state
   const [payGroups, setPayGroups] = useState<any[]>([]);
@@ -69,6 +73,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [disconnectingGmail, setDisconnectingGmail] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Enforce 1MB limit for base64 storage in D1
+    if (file.size > 1024 * 1024) {
+      triggerToast('Logo file must be under 1 MB.', 'error');
+      return;
+    }
+    setLogoUploading(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setSettings(prev => ({ ...prev, logo_url: dataUrl }));
+      setLogoUploading(false);
+    };
+    reader.onerror = () => {
+      triggerToast('Failed to read logo file.', 'error');
+      setLogoUploading(false);
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so re-uploading same file triggers onChange
+    e.target.value = '';
+  };
+
+  const handleRemoveLogo = () => {
+    setSettings(prev => ({ ...prev, logo_url: null }));
+  };
+
+
 
   const handleConnectGmail = async () => {
     try {
@@ -381,7 +416,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -400,7 +435,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onClick={() => setActiveTab('company')}
           className={`pb-2.5 px-4 text-sm font-bold border-b-2 transition-colors cursor-pointer bg-transparent border-none ${
             activeTab === 'company' 
-              ? 'border-primary text-primary font-black' 
+              ? 'border-highlight text-primary font-black' 
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -410,7 +445,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onClick={() => setActiveTab('paygroups')}
           className={`pb-2.5 px-4 text-sm font-bold border-b-2 transition-colors cursor-pointer bg-transparent border-none ${
             activeTab === 'paygroups' 
-              ? 'border-primary text-primary font-black' 
+              ? 'border-highlight text-primary font-black' 
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -434,7 +469,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={settings.legal_name}
                     onChange={handleChange}
                     placeholder="e.g. Acme Solutions Inc."
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     required
                   />
                 </div>
@@ -446,7 +481,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={settings.operating_name}
                     onChange={handleChange}
                     placeholder="e.g. Acme Corp"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -457,7 +492,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={settings.business_number}
                     onChange={handleChange}
                     placeholder="123456789 RP 0001"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     required
                   />
                 </div>
@@ -467,7 +502,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="business_type"
                     value={settings.business_type || 'Corporation'}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="Corporation">Corporation</option>
                     <option value="Sole Proprietorship">Sole Proprietorship</option>
@@ -483,13 +518,126 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={settings.owner_sin || ''}
                     onChange={handleChange}
                     placeholder="e.g. 123-456-789"
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
             </section>
 
-            {/* Location & Contact Card */}
+            {/* Branding Card */}
+            <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-primary mb-1 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-secondary">palette</span>
+                Branding
+              </h3>
+              <p className="text-[11px] text-on-surface-variant mb-6">Customize how the portal looks and identifies your company.</p>
+
+              <div className="flex flex-col gap-6">
+                {/* Logo Upload */}
+                <div className="flex flex-col gap-3">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Company Logo</label>
+                  <div className="flex items-center gap-4">
+                    {/* Logo Preview */}
+                    <div className="w-16 h-16 rounded-xl border-2 border-dashed border-outline-variant flex items-center justify-center bg-surface-container-low overflow-hidden flex-shrink-0">
+                      {settings.logo_url ? (
+                        <img
+                          src={settings.logo_url}
+                          className="w-full h-full object-contain p-1"
+                          alt="Company logo preview"
+                        />
+                      ) : (
+                        <span className="material-symbols-outlined text-[28px] text-on-surface-variant/50">image</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="logo-upload-input"
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-outline-variant text-xs font-bold text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer ${
+                          logoUploading ? 'opacity-60 pointer-events-none' : ''
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{logoUploading ? 'hourglass_empty' : 'upload'}</span>
+                        {logoUploading ? 'Reading...' : (settings.logo_url ? 'Replace Logo' : 'Upload Logo')}
+                        <input
+                          id="logo-upload-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                        />
+                      </label>
+                      {settings.logo_url && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-error hover:underline cursor-pointer bg-transparent border-none px-0 w-fit"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">delete</span>
+                          Remove
+                        </button>
+                      )}
+                      <p className="text-[10px] text-on-surface-variant leading-tight">PNG, JPG, or SVG. Max 1 MB.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Brand Color */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="brand_color">Highlight Color</label>
+                  <div className="flex items-center gap-3">
+                    {/* Live Color Swatch */}
+                    <div
+                      className="w-9 h-9 rounded-lg border border-outline-variant shadow-sm flex-shrink-0 transition-colors duration-200"
+                      style={{ backgroundColor: settings.brand_color || '#001e40' }}
+                    />
+                    <input
+                      type="text"
+                      id="brand_color"
+                      value={settings.brand_color || ''}
+                      onChange={handleChange}
+                      placeholder="#001e40"
+                      maxLength={7}
+                      className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-36"
+                    />
+                    {settings.brand_color && (
+                      <button
+                        type="button"
+                        onClick={() => setSettings(prev => ({ ...prev, brand_color: null }))}
+                        className="text-xs font-semibold text-on-surface-variant hover:text-error transition-colors cursor-pointer bg-transparent border-none"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant leading-tight">
+                    Hex code applied to nav selections, buttons, and accents across the portal.
+                  </p>
+                </div>
+
+                {/* Portal Identity Toggle */}
+                <div className="bg-surface-container-low border border-outline-variant rounded-lg p-4">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center mt-0.5 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        id="use_company_branding"
+                        checked={settings.use_company_branding === 1}
+                        onChange={handleChange}
+                        className="peer sr-only"
+                      />
+                      <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors" />
+                      <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Use company name as portal title</span>
+                      <span className="text-[10px] text-on-surface-variant leading-tight mt-1">When enabled, replaces 'Gitpaid' in the sidebar and report footers with your legal company name.</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+
             <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
               <h3 className="text-base font-bold text-primary mb-6 border-b border-outline-variant pb-2">Location &amp; Contact</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,7 +648,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="address_line1"
                     value={settings.address_line1}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -510,7 +658,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="address_line2"
                     value={settings.address_line2 || ''}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
@@ -523,7 +671,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="city"
                     value={settings.city}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -532,7 +680,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="province"
                     value={settings.province || 'ON'}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="ON">Ontario (ON)</option>
                     <option value="AB">Alberta (AB)</option>
@@ -553,7 +701,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="postal_code"
                     value={settings.postal_code}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
               </div>
@@ -570,7 +718,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="contact_name"
                     value={settings.contact_name}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -581,7 +729,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       id="contact_email"
                       value={settings.contact_email}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -591,7 +739,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       id="contact_phone"
                       value={settings.contact_phone || ''}
                       onChange={handleChange}
-                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                      className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     />
                   </div>
                 </div>
@@ -620,7 +768,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={settings.wsib_number}
                     onChange={handleChange}
                     placeholder="9-digit WSIB account"
-                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                 </div>
 
@@ -633,7 +781,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="wsib_rate"
                     value={settings.wsib_rate}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                   <p className="text-[10px] text-on-surface-variant leading-tight">
                     Applied as employer premium rate on gross insurable earnings.
@@ -655,8 +803,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           onChange={handleChange}
                           className="peer sr-only"
                         />
-                        <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                        <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                        <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                        <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Claim EHT Exemption</span>
@@ -675,7 +823,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="eht_rate"
                     value={settings.eht_rate}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                 </div>
               </div>
@@ -691,7 +839,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="pay_period" 
                     value={settings.pay_period} 
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="weekly">Weekly</option>
                     <option value="bi-weekly">Bi-weekly</option>
@@ -708,7 +856,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="vacation_rate"
                     value={settings.vacation_rate}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                 </div>
 
@@ -718,7 +866,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="remittance_frequency" 
                     value={settings.remittance_frequency || 'monthly'} 
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   >
                     <option value="quarterly">Quarterly</option>
                     <option value="monthly">Monthly</option>
@@ -735,7 +883,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     id="override_ei_employer_rate"
                     value={settings.override_ei_employer_rate !== undefined ? settings.override_ei_employer_rate : 1.4}
                     onChange={handleChange}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                   <p className="text-[10px] text-on-surface-variant leading-tight">
                     Default is 1.4. Applied as match multiplier on employee EI.
@@ -799,11 +947,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       type="button"
                       onClick={handleConnectGmail}
                       disabled={connectingGmail}
-                      className="w-full px-4 py-2.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer border-none"
+                      className="w-full px-4 py-2.5 rounded-lg bg-highlight text-on-highlight text-xs font-bold hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer border-none"
                     >
                       {connectingGmail ? (
                         <>
-                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-on-primary"></div>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-on-highlight"></div>
                           Connecting...
                         </>
                       ) : (
@@ -823,7 +971,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button 
                 type="submit"
                 disabled={saving}
-                className="w-full px-5 py-3 rounded-lg bg-primary text-on-primary text-sm font-semibold hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
+                className="w-full px-5 py-3 rounded-lg bg-highlight text-on-highlight text-sm font-semibold hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Configuration'}
               </button>
@@ -840,7 +988,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h3 className="font-bold text-sm text-primary">Configured Pay Groups</h3>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-primary hover:bg-opacity-95 text-on-primary text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 cursor-pointer border-none"
+                className="bg-highlight hover:bg-opacity-95 text-on-highlight text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 cursor-pointer border-none"
               >
                 <span className="material-symbols-outlined text-xs font-bold">add</span>
                 Add Pay Group
@@ -858,7 +1006,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       key={group.id}
                       onClick={() => loadGroupSchedules(group.id)}
                       className={`p-4 flex justify-between items-center transition-colors cursor-pointer ${
-                        isSelected ? 'bg-primary/5 border-l-4 border-primary' : 'hover:bg-surface-container-low/20'
+                        isSelected ? 'bg-highlight/5 border-l-4 border-highlight' : 'hover:bg-surface-container-low/20'
                       }`}
                     >
                       <div>
@@ -918,7 +1066,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 type="date"
                                 value={editStart}
                                 onChange={(e) => setEditStart(e.target.value)}
-                                className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                                className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                               />
                             </div>
                             <div className="flex flex-col gap-1">
@@ -927,7 +1075,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 type="date"
                                 value={editEnd}
                                 onChange={(e) => setEditEnd(e.target.value)}
-                                className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface"
+                                className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface"
                               />
                             </div>
                           </div>
@@ -937,7 +1085,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               type="date"
                               value={editPayment}
                               onChange={(e) => setEditPayment(e.target.value)}
-                              className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-transparent text-on-surface w-full"
+                              className="h-8 border border-outline-variant rounded px-2 text-xs focus:outline-none focus:ring-1 focus:ring-highlight bg-transparent text-on-surface w-full"
                             />
                           </div>
                           <div className="flex justify-end gap-2 mt-1">
@@ -952,7 +1100,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               type="button"
                               onClick={() => handleSaveScheduleEdit(s)}
                               disabled={saving}
-                              className="px-2.5 py-1 text-[10px] font-bold bg-primary text-on-primary rounded hover:bg-opacity-90 cursor-pointer border-none"
+                              className="px-2.5 py-1 text-[10px] font-bold bg-highlight text-on-highlight rounded hover:bg-opacity-90 cursor-pointer border-none"
                             >
                               {saving ? 'Saving...' : 'Save'}
                             </button>
@@ -1006,7 +1154,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             type="date" 
                             value={genStart}
                             onChange={(e) => setGenStart(e.target.value)}
-                            className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-transparent"
+                            className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent"
                             required
                           />
                         </div>
@@ -1016,7 +1164,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             type="date" 
                             value={genEnd}
                             onChange={(e) => setGenEnd(e.target.value)}
-                            className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-transparent"
+                            className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent"
                             required
                           />
                         </div>
@@ -1028,7 +1176,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           type="date" 
                           value={genPayment}
                           onChange={(e) => setGenPayment(e.target.value)}
-                          className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                          className="h-9 border border-outline-variant rounded px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                           required
                         />
                       </div>
@@ -1036,7 +1184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button
                         type="submit"
                         disabled={generatingSchedules}
-                        className="w-full bg-primary text-on-primary font-bold py-2 px-3 rounded-lg text-xs hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        className="w-full bg-highlight text-on-highlight font-bold py-2 px-3 rounded-lg text-xs hover:bg-opacity-95 transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[16px]">calendar_month</span>
                         {generatingSchedules ? 'Generating Calendar...' : 'Generate Schedule Calendar'}
@@ -1142,7 +1290,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-primary hover:bg-opacity-95 text-on-primary font-bold py-2 px-4 rounded-lg text-sm cursor-pointer border-none"
+                  className="bg-highlight hover:bg-opacity-95 text-on-highlight font-bold py-2 px-4 rounded-lg text-sm cursor-pointer border-none"
                 >
                   {saving ? 'Creating...' : 'Create Group'}
                 </button>

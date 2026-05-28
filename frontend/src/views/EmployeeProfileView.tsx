@@ -166,7 +166,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -206,7 +206,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.first_name || ''} 
                   onChange={handleChange}
                   placeholder="e.g. Sarah"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                   required
                 />
               </div>
@@ -218,7 +218,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.last_name || ''} 
                   onChange={handleChange}
                   placeholder="e.g. Jenkins"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                   required
                 />
               </div>
@@ -230,7 +230,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.email || ''} 
                   onChange={handleChange}
                   placeholder="e.g. sarah.j@company.com"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                   required
                 />
               </div>
@@ -242,7 +242,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.role || ''} 
                   onChange={handleChange}
                   placeholder="e.g. Senior Developer"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -251,7 +251,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   id="department" 
                   value={formData.department || 'Engineering'} 
                   onChange={handleChange}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                 >
                   <option value="Engineering">Engineering</option>
                   <option value="Sales">Sales</option>
@@ -266,7 +266,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   id="status" 
                   value={formData.status || 'active'} 
                   onChange={handleChange}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                 >
                   <option value="active">Active</option>
                   <option value="leave">On Leave</option>
@@ -281,7 +281,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.avatar || ''} 
                   onChange={handleChange}
                   placeholder="Initials (e.g. SJ) or Image URL"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -292,7 +292,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   value={formData.sin || ''} 
                   onChange={handleChange}
                   placeholder="e.g. 123 456 789"
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -302,7 +302,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   id="start_date" 
                   value={formData.start_date || ''} 
                   onChange={handleChange}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     checked={isYtdMigrationEnabled || isYtdLocked}
                     disabled={isYtdLocked}
                     onChange={(e) => setIsYtdMigrationEnabled(e.target.checked)}
-                    className="rounded border-outline-variant text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    className="rounded border-outline-variant text-highlight focus:ring-highlight h-4 w-4 cursor-pointer"
                   />
                   Enable Mid-Year YTD Transfer
                 </label>
@@ -344,7 +344,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_gross || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -356,7 +356,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_net || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -368,7 +368,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_cpp || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -380,7 +380,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_cpp_employer || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -392,7 +392,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_ei || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -404,7 +404,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_ei_employer || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -416,7 +416,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_tax || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -428,7 +428,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_wsib || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -440,7 +440,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_eht || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -452,7 +452,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_vacation_accrued || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -464,7 +464,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     value={formData.ytd_vacation_paid || ''} 
                     onChange={handleChange}
                     disabled={isYtdLocked}
-                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-primary bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -493,7 +493,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   id="pay_type" 
                   value={formData.pay_type || 'salary'} 
                   onChange={handleChange}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                 >
                   <option value="salary">Salary</option>
                   <option value="hourly">Hourly</option>
@@ -515,7 +515,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       pay_interval: group ? group.pay_frequency : prev.pay_interval
                     }));
                   }}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full cursor-pointer"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full cursor-pointer"
                   required
                 >
                   <option value="" disabled>Select a Pay Group...</option>
@@ -537,7 +537,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   id="rate" 
                   value={formData.rate || ''} 
                   onChange={handleChange}
-                  className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary bg-transparent w-full"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   required
                 />
                 <p className="text-[10px] text-on-surface-variant leading-tight">
@@ -568,8 +568,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     onChange={handleChange}
                     className="peer sr-only"
                   />
-                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                  <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                  <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">CPP Exempt</span>
@@ -589,8 +589,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     onChange={handleChange}
                     className="peer sr-only"
                   />
-                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                  <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                  <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">EI Exempt</span>
@@ -610,8 +610,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     onChange={handleChange}
                     className="peer sr-only"
                   />
-                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                  <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                  <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                  <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Income Tax Exempt</span>
@@ -632,8 +632,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       onChange={handleChange}
                       className="peer sr-only"
                     />
-                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                    <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                    <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">FIT Exempt</span>
@@ -650,7 +650,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       id="fit_withholding_amount" 
                       value={formData.fit_withholding_amount || ''} 
                       onChange={handleChange}
-                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 )}
@@ -669,8 +669,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       onChange={handleChange}
                       className="peer sr-only"
                     />
-                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                    <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                    <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Override Federal Basic Claim</span>
@@ -687,7 +687,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       id="fed_tax_credit_amount" 
                       value={formData.fed_tax_credit_amount || ''} 
                       onChange={handleChange}
-                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 )}
@@ -706,8 +706,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       onChange={handleChange}
                       className="peer sr-only"
                     />
-                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                    <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                    <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Override Ontario Basic Claim</span>
@@ -724,7 +724,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       id="prov_tax_credit_amount" 
                       value={formData.prov_tax_credit_amount || ''} 
                       onChange={handleChange}
-                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 )}
@@ -743,8 +743,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       onChange={handleChange}
                       className="peer sr-only"
                     />
-                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-primary peer-checked:border-primary transition-colors"></div>
-                    <span className="material-symbols-outlined absolute text-on-primary text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                    <div className="w-5 h-5 border-2 border-outline rounded bg-transparent peer-checked:bg-highlight peer-checked:border-highlight transition-colors"></div>
+                    <span className="material-symbols-outlined absolute text-on-highlight text-[16px] opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">WSIB (WCB) Exempt</span>
@@ -762,7 +762,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                       value={formData.wcb_rate || ''} 
                       onChange={handleChange}
                       placeholder="Use Company Rate"
-                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                      className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
                 )}
@@ -782,7 +782,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
             <button 
               type="submit"
               disabled={saving}
-              className="px-5 py-2 rounded-lg bg-primary text-on-primary text-sm font-semibold hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-highlight text-on-highlight text-sm font-semibold hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
             >
               {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Onboard Employee'}
             </button>

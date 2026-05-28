@@ -47,7 +47,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -205,7 +205,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ) : (
               <div className="space-y-3 flex-1 overflow-y-auto max-h-[220px] pr-1">
                 {upcomingSchedules.slice(0, 4).map((schedule) => (
-                  <div key={schedule.id} className="p-3 bg-surface-container-low rounded-lg border border-outline-variant flex justify-between items-center hover:border-primary transition-all">
+                  <div key={schedule.id} className="p-3 bg-surface-container-low rounded-lg border border-outline-variant flex justify-between items-center hover:border-highlight transition-all">
                     <div className="flex flex-col gap-0.5 min-w-0">
                       <div className="text-xs font-bold text-on-surface truncate">{schedule.pay_group_name}</div>
                       <div className="text-[10px] text-on-surface-variant font-semibold">
@@ -217,7 +217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <button
                       onClick={() => onStartPayroll(schedule.id)}
-                      className="flex-shrink-0 px-3 py-1.5 bg-primary text-on-primary font-bold text-[10px] uppercase tracking-wider rounded hover:bg-opacity-90 transition-all flex items-center gap-1 shadow-sm"
+                      className="flex-shrink-0 px-3 py-1.5 bg-highlight text-on-highlight font-bold text-[10px] uppercase tracking-wider rounded hover:bg-opacity-90 transition-all flex items-center gap-1 shadow-sm"
                     >
                       Run
                       <span className="material-symbols-outlined text-[12px]">play_arrow</span>
@@ -228,7 +228,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
             <button
               onClick={() => onStartPayroll()}
-              className="w-full bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1 transition-all border border-outline-variant"
+              className="w-full bg-surface-container-high hover:bg-surface-container-highest text-highlight font-bold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1 transition-all border border-outline-variant"
             >
               Ad-hoc Custom Run
               <span className="material-symbols-outlined text-[14px]">tune</span>

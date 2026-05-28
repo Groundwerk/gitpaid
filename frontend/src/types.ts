@@ -23,6 +23,9 @@ export interface CompanySettings {
   override_ei_employer_rate?: number;
   gmail_refresh_token?: string;
   gmail_email?: string | null;
+  logo_url?: string | null;
+  brand_color?: string | null;
+  use_company_branding?: number; // 0 | 1
 }
 
 export interface Employee {

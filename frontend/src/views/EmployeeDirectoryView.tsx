@@ -123,7 +123,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
       </div>
     );
   }
@@ -138,7 +138,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
         </div>
         <button 
           onClick={onNewEmployee}
-          className="bg-primary hover:bg-opacity-90 text-on-primary text-sm font-semibold h-10 px-5 rounded-lg shadow-sm transition-all flex items-center gap-2"
+          className="bg-highlight hover:bg-opacity-90 text-on-highlight text-sm font-semibold h-10 px-5 rounded-lg shadow-sm transition-all flex items-center gap-2"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           New Employee
@@ -155,7 +155,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search employees by name, role, email..."
-              className="w-full h-10 pl-10 pr-4 rounded-lg border border-outline-variant bg-surface focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-on-surface transition-shadow outline-none placeholder:text-outline"
+              className="w-full h-10 pl-10 pr-4 rounded-lg border border-outline-variant bg-surface focus:ring-2 focus:ring-highlight focus:border-transparent text-sm text-on-surface transition-shadow outline-none placeholder:text-outline"
             />
           </div>
         </div>
@@ -164,7 +164,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
             <select 
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="appearance-none h-10 pl-4 pr-10 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-low text-xs font-semibold text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent outline-none cursor-pointer transition-colors"
+              className="appearance-none h-10 pl-4 pr-10 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-low text-xs font-semibold text-on-surface focus:ring-2 focus:ring-highlight focus:border-transparent outline-none cursor-pointer transition-colors"
             >
               <option value="">All Departments</option>
               <option value="engineering">Engineering</option>
@@ -179,7 +179,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
             <select 
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="appearance-none h-10 pl-4 pr-10 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-low text-xs font-semibold text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent outline-none cursor-pointer transition-colors"
+              className="appearance-none h-10 pl-4 pr-10 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-low text-xs font-semibold text-on-surface focus:ring-2 focus:ring-highlight focus:border-transparent outline-none cursor-pointer transition-colors"
             >
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -252,7 +252,7 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
                             e.stopPropagation();
                             onEditEmployee(emp.id);
                           }}
-                          className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors"
+                          className="p-1.5 rounded-lg text-on-surface-variant hover:text-highlight hover:bg-surface-container-high transition-colors"
                           title="Edit Profile"
                         >
                           <span className="material-symbols-outlined text-[20px]">edit</span>
