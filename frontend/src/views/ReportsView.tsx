@@ -76,16 +76,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
   const handleDownloadT4 = async () => {
     try {
       setDownloadingT4(true);
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const res = await fetch(api.getT4ExportUrl(), { headers });
-      if (!res.ok) {
-        throw new Error(`Failed to export T4 XML: ${res.statusText}`);
-      }
-      const blob = await res.blob();
+      const blob = await api.downloadFile(api.getT4ExportUrl());
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -107,17 +98,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
     if (!runDetails) return;
     try {
       setDownloadingStubId(employeeId);
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
       const url = api.getPaystubUrl(runDetails.id, employeeId);
-      const res = await fetch(url, { headers });
-      if (!res.ok) {
-        throw new Error(`Failed to download paystub: ${res.statusText}`);
-      }
-      const blob = await res.blob();
+      const blob = await api.downloadFile(url);
       const objectUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -499,11 +481,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
   const handleDownloadReportPdf = async () => {
     try {
       setDownloadingReport(true);
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
       
       let url = '';
       let filename = '';
@@ -575,11 +552,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
         filename = `ytd_detail_report_${reportFilterYear}.pdf`;
       }
       
-      const res = await fetch(url, { headers });
-      if (!res.ok) {
-        throw new Error(`Failed to generate report PDF: ${res.statusText}`);
-      }
-      const blob = await res.blob();
+      const blob = await api.downloadFile(url);
       const objectUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;

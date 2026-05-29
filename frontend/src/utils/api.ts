@@ -18,6 +18,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     headers,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+    }
     const err = await res.json().catch(() => ({ error: 'An unknown error occurred' }));
     throw new Error(err.error || `HTTP error ${res.status}`);
   }
@@ -25,6 +28,23 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Download file helper (with authentication)
+  downloadFile: async (url: string): Promise<Blob> => {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+      }
+      throw new Error(`HTTP error ${res.status}`);
+    }
+    return res.blob();
+  },
+
   // Settings
   getSettings: () => request<CompanySettings>('/settings'),
   updateSettings: (settings: Partial<CompanySettings>) => 

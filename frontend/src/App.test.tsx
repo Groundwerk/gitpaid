@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { App } from './App';
 
@@ -90,5 +90,31 @@ describe('Frontend App Authentication States', () => {
     });
     expect(screen.getByText('Overview')).toBeInTheDocument();
     expect(screen.getByText('Run Payroll')).toBeInTheDocument();
+  });
+
+  it('resets auth session and redirects to LoginView when auth-unauthorized event is received', async () => {
+    localStorage.setItem('token', 'mock-jwt-token');
+    localStorage.setItem('email', 'admin@company.com');
+    localStorage.setItem('name', 'Admin User');
+    localStorage.setItem('avatar', '');
+    localStorage.setItem('companyId', '1');
+
+    render(<App />);
+
+    // Verify authenticated view renders
+    await waitFor(() => {
+      expect(screen.getByText('Dynamic Acme Solutions')).toBeInTheDocument();
+    });
+
+    // Dispatch the custom auth-unauthorized event
+    act(() => {
+      window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+    });
+
+    // Verify it drops back to LoginView and localStorage is cleared
+    await waitFor(() => {
+      expect(screen.getByText('Ontario Payroll Portal')).toBeInTheDocument();
+    });
+    expect(localStorage.getItem('token')).toBeNull();
   });
 });

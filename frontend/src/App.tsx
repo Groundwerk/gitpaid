@@ -128,7 +128,7 @@ export const App: React.FC = () => {
     setCompanyId(newCompanyId);
   };
 
-  const handleLogout = () => {
+  const handleLogout = (showToast = true) => {
     localStorage.removeItem('token');
     localStorage.removeItem('email');
     localStorage.removeItem('name');
@@ -147,8 +147,22 @@ export const App: React.FC = () => {
     document.documentElement.style.removeProperty('--brand-highlight-container');
     document.documentElement.style.removeProperty('--brand-primary');
     document.documentElement.style.removeProperty('--brand-primary-container');
-    triggerToast('Signed out successfully.', 'success');
+    if (showToast) {
+      triggerToast('Signed out successfully.', 'success');
+    }
   };
+
+  // Listen for unauthorized events (e.g. token expired) to trigger logout
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      handleLogout(false);
+      triggerToast('Session expired. Please sign in again.', 'error');
+    };
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, []);
 
 
   const handleSettingsUpdate = () => {
