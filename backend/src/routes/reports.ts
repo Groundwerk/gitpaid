@@ -370,11 +370,13 @@ function uint8ArrayToBase64(arr: Uint8Array): string {
 // Shared helper to generate paystub PDF with dynamic label overrides
 export function generatePaystubPdf(settings: any, emp: any, payrollInfo: any): Uint8Array {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const primaryColor = settings?.use_company_branding && settings?.brand_color ? settings.brand_color : '#001e40';
+  const secondaryColor = settings?.use_company_branding && settings?.brand_color ? settings.brand_color : '#0059bb';
 
   // --- Header ---
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
-  doc.setTextColor('#001e40');
+  doc.setTextColor(primaryColor);
   doc.text(settings.legal_name, 50, 60);
   
   doc.setFont('helvetica', 'normal');
@@ -386,7 +388,7 @@ export function generatePaystubPdf(settings: any, emp: any, payrollInfo: any): U
   // Title
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.setTextColor('#0059bb');
+  doc.setTextColor(secondaryColor);
   doc.text('STATEMENT OF EARNINGS & DEDUCTIONS', 306, 130, { align: 'center' });
 
   // Meta Grid
@@ -411,7 +413,7 @@ export function generatePaystubPdf(settings: any, emp: any, payrollInfo: any): U
   doc.rect(50, tableTop, 512, 20, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor('#001e40');
+  doc.setTextColor(primaryColor);
   doc.text('DESCRIPTION', 60, tableTop + 14);
   doc.text('CURRENT RATE', 200, tableTop + 14);
   doc.text('CURRENT AMOUNT', 320, tableTop + 14);
@@ -445,7 +447,7 @@ export function generatePaystubPdf(settings: any, emp: any, payrollInfo: any): U
   doc.rect(50, rowY, 512, 40, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.setTextColor('#001e40');
+  doc.setTextColor(primaryColor);
   doc.text('NET PAY DEPOSITED', 60, rowY + 24);
   doc.setFontSize(16);
   doc.text(`$${payrollInfo.net_pay.toFixed(2)}`, 540, rowY + 26, { align: 'right' });
@@ -881,12 +883,14 @@ function formatReportCurrency(val: number): string {
   return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(val);
 }
 
-function drawReportFooter(doc: jsPDF, userEmail: string, currentPage: number = 1, totalPages: number = 1, generatedBy: string = 'Gitpaid Payroll') {
+function drawReportFooter(doc: jsPDF, userEmail: string, currentPage: number = 1, totalPages: number = 1, generatedBy: string = 'Gitpaid Payroll', brandColor: string | null = null) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const pageWidth = doc.internal.pageSize.getWidth();
   
+  const footerLineColor = brandColor || '#0059bb';
+  
   // Thin line above footer with Gitpaid secondary accent
-  doc.setDrawColor('#0059bb');
+  doc.setDrawColor(footerLineColor);
   doc.setLineWidth(0.75);
   doc.line(50, pageHeight - 60, pageWidth - 50, pageHeight - 60);
   
@@ -909,17 +913,19 @@ function drawReportFooter(doc: jsPDF, userEmail: string, currentPage: number = 1
   doc.text(`Page ${currentPage} of ${totalPages}`, pageWidth - 50, pageHeight - 32, { align: 'right' });
 }
 
+function drawReportHeader(doc: jsPDF, title: string, companyName: string, metadata: { label: string; value: string }[], brandColor: string | null = null) {
+  const primaryColor = brandColor || '#001e40';
+  const secondaryColor = brandColor || '#0059bb';
 
-function drawReportHeader(doc: jsPDF, title: string, companyName: string, metadata: { label: string; value: string }[]) {
   // Title (Gitpaid Primary Navy)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.setTextColor('#001e40');
+  doc.setTextColor(primaryColor);
   doc.text(title, 50, 50);
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor('#001e40');
+  doc.setTextColor(primaryColor);
   doc.text('Company:', 50, 75);
   
   doc.setFont('helvetica', 'normal');
@@ -927,6 +933,7 @@ function drawReportHeader(doc: jsPDF, title: string, companyName: string, metada
   doc.text(companyName, 110, 75);
   
   let y = 90;
+  let rightY = 75;
   for (const item of metadata) {
     const isRightAligned = 
       item.label.toLowerCase().includes('date') || 
@@ -937,17 +944,17 @@ function drawReportHeader(doc: jsPDF, title: string, companyName: string, metada
     if (isRightAligned) {
       const xLabel = doc.internal.pageSize.getWidth() - 320;
       const xValue = xLabel + 110;
-      const rightY = (item.label.toLowerCase().includes('selection') || item.label.toLowerCase().includes('end')) ? 90 : 75;
       
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor('#001e40');
+      doc.setTextColor(primaryColor);
       doc.text(item.label, xLabel, rightY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor('#43474f');
       doc.text(item.value, xValue, rightY);
+      rightY += 15;
     } else {
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor('#001e40');
+      doc.setTextColor(primaryColor);
       doc.text(item.label, 50, y);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor('#43474f');
@@ -957,11 +964,11 @@ function drawReportHeader(doc: jsPDF, title: string, companyName: string, metada
   }
   
   // Draw horizontal divider line below headers with Gitpaid custom double-accent styling
-  doc.setDrawColor('#001e40'); // Gitpaid Primary Navy
+  doc.setDrawColor(primaryColor); // Gitpaid Primary Navy
   doc.setLineWidth(2.0);
   doc.line(50, 115, doc.internal.pageSize.getWidth() - 50, 115);
   
-  doc.setDrawColor('#0059bb'); // Gitpaid Secondary Blue
+  doc.setDrawColor(secondaryColor); // Gitpaid Secondary Blue
   doc.setLineWidth(1.0);
   doc.line(50, 118, doc.internal.pageSize.getWidth() - 50, 118);
 }
@@ -1079,6 +1086,10 @@ router.get('/net-pay', async (c) => {
 
     if (!runId) return c.json({ error: 'Missing run_id parameter' }, 400);
 
+    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
+    if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
+
     const run = await c.env.DB.prepare(`
       SELECT pr.*, cs.legal_name, pg.name as pay_group_name
       FROM payroll_runs pr
@@ -1158,7 +1169,7 @@ router.get('/net-pay', async (c) => {
       { label: 'Pay group:', value: reportData.payGroup },
       { label: 'Pay run date:', value: `${reportData.periodStart} - ${reportData.periodEnd}` }
     ];
-    drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -1191,7 +1202,7 @@ router.get('/net-pay', async (c) => {
         // Check page overflow before drawing group header
         if (y > pageHeight - 100) {
           doc.addPage();
-          drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata);
+          drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
           y = 135;
           doc.setFont('helvetica', 'bold');
           doc.text('Employee name', nameX, y);
@@ -1216,7 +1227,7 @@ router.get('/net-pay', async (c) => {
           // Check page overflow
           if (y > pageHeight - 100) {
             doc.addPage();
-            drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata);
+            drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
             y = 135;
             doc.setFont('helvetica', 'bold');
             doc.text('Employee name', nameX, y);
@@ -1240,7 +1251,7 @@ router.get('/net-pay', async (c) => {
         // Subtotal row
         if (y > pageHeight - 100) {
           doc.addPage();
-          drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata);
+          drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
           y = 135;
         }
         doc.line(50, y - 5, pageWidth - 50, y - 5);
@@ -1254,7 +1265,7 @@ router.get('/net-pay', async (c) => {
       // Grand total row
       if (y > pageHeight - 100) {
         doc.addPage();
-        drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata);
+        drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
         y = 135;
       }
       doc.setLineWidth(1);
@@ -1266,12 +1277,11 @@ router.get('/net-pay', async (c) => {
       doc.line(50, y + 6, pageWidth - 50, y + 6); // double underline
     }
 
-    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     // Add page footers dynamically
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -1299,6 +1309,10 @@ router.get('/pay-run-summary', async (c) => {
     const format = c.req.query('format');
 
     if (!runId) return c.json({ error: 'Missing run_id parameter' }, 400);
+
+    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
+    if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     const run = await c.env.DB.prepare(`
       SELECT pr.*, cs.legal_name, cs.pay_period as company_pay_period, pg.name as pay_group_name
@@ -1474,7 +1488,7 @@ router.get('/pay-run-summary', async (c) => {
       { label: 'Pay group:', value: reportData.payGroup },
       { label: 'Pay run date:', value: `${reportData.periodStart} - ${reportData.periodEnd}` }
     ];
-    drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1482,8 +1496,8 @@ router.get('/pay-run-summary', async (c) => {
 
     // Table columns
     const compX = 50;
-    const qtyX = 260;
-    const curX = 380;
+    const qtyX = 250;
+    const curX = 410;
     const ytdX = pageWidth - 50;
 
     // Headers
@@ -1504,7 +1518,7 @@ router.get('/pay-run-summary', async (c) => {
     const printRow = (label: string, qty: string, cur: number, ytdValue: number, isSubtotal: boolean = false) => {
       if (y > pageHeight - 80) {
         doc.addPage();
-        drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata);
+        drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata, brandColor);
         y = 135;
         doc.setFont('helvetica', 'bold');
         doc.text('Components', compX, y);
@@ -1533,7 +1547,7 @@ router.get('/pay-run-summary', async (c) => {
     const printSectionHeader = (label: string) => {
       if (y > pageHeight - 80) {
         doc.addPage();
-        drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata);
+        drawReportHeader(doc, 'Pay run summary', reportData.companyName, metadata, brandColor);
         y = 135;
       }
       doc.setFont('helvetica', 'bold');
@@ -1593,12 +1607,11 @@ router.get('/pay-run-summary', async (c) => {
     doc.line(50, y + 26, pageWidth - 50, y + 26);
     doc.line(50, y + 28, pageWidth - 50, y + 28); // double line
 
-    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     // Add page footers dynamically
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -1661,6 +1674,7 @@ router.get('/pay-statement', async (c) => {
       .first() as any;
 
     if (!settings) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = settings.use_company_branding ? settings.brand_color : null;
 
     // Collect all statements
     const statements = [];
@@ -1793,19 +1807,20 @@ router.get('/pay-statement', async (c) => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.text('Acknowledgement of payment received', 250, 220);
+      doc.setDrawColor(brandColor || '#0b1c30');
+      doc.setLineWidth(1.0);
       doc.line(415, 220, 562, 220);
 
       // Details Metadata Box
-      doc.setDrawColor('#0b1c30');
       doc.setLineWidth(1.5);
       doc.rect(50, 240, 512, 55, 'S');
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.text(settings.legal_name, 60, 253);
+      doc.text('Payment method:', 370, 253);
       doc.setFont('helvetica', 'normal');
-      doc.text(st.re.method, 450, 253);
-      doc.text(st.re.method.toUpperCase(), 500, 253);
+      doc.text(st.re.method, 445, 253);
 
       doc.setFont('helvetica', 'bold');
       doc.text('Employee name:', 60, 268);
@@ -1813,9 +1828,9 @@ router.get('/pay-statement', async (c) => {
       doc.text(`${st.emp.first_name} ${st.emp.last_name}`, 140, 268);
       
       doc.setFont('helvetica', 'bold');
-      doc.text('Pay date:', 450, 268);
+      doc.text('Pay date:', 370, 268);
       doc.setFont('helvetica', 'normal');
-      doc.text(st.run.run_date, 500, 268);
+      doc.text(st.run.run_date, 445, 268);
 
       doc.setFont('helvetica', 'bold');
       doc.text('Employee ID:', 60, 283);
@@ -1823,9 +1838,9 @@ router.get('/pay-statement', async (c) => {
       doc.text(st.emp.id.toString(), 140, 283);
       
       doc.setFont('helvetica', 'bold');
-      doc.text('Pay period:', 450, 283);
+      doc.text('Pay period:', 370, 283);
       doc.setFont('helvetica', 'normal');
-      doc.text(`${st.run.period_start} to ${st.run.period_end}`, 500, 283);
+      doc.text(`${st.run.period_start} to ${st.run.period_end}`, 445, 283);
 
       // Tables side-by-side (y = 315)
       const tabY = 315;
@@ -1871,7 +1886,9 @@ router.get('/pay-statement', async (c) => {
       }
 
       // Gross total
-      doc.line(leftColX, ey - 6, leftColX + colWidth + 10, ey - 6);
+      ey += 4;
+      doc.line(leftColX, ey, leftColX + colWidth + 10, ey);
+      ey += 12;
       doc.setFont('helvetica', 'bold');
       doc.text('Gross earnings/hours', leftColX, ey);
       doc.text(hoursStr, leftColX + 130, ey);
@@ -1943,10 +1960,11 @@ router.get('/pay-statement', async (c) => {
       dy += 12;
 
       // Total deductions
-      doc.line(rightColX, dy - 4, rightColX + colWidth, dy - 4);
+      dy += 4;
+      doc.line(rightColX, dy, rightColX + colWidth, dy);
+      dy += 12;
       doc.setFont('helvetica', 'bold');
       doc.text('Total deductions', rightColX, dy);
-      doc.text(st.re.tax.toFixed(2), rightColX + 130, dy); // combined tax + cpp + ei
       const curDed = st.re.cpp_employee + st.re.ei_employee + st.re.tax;
       const ytdDed = st.ytd.cpp + st.ytd.ei + st.ytd.tax;
       doc.text(curDed.toFixed(2), rightColX + 130, dy);
@@ -1970,20 +1988,20 @@ router.get('/pay-statement', async (c) => {
       
       doc.text('Deductions', rightColX, sy);
       doc.text(`-${curDed.toFixed(2)}`, rightColX + 190, sy);
-      sy += 12;
+      sy += 4;
       
-      doc.line(rightColX, sy - 6, rightColX + colWidth, sy - 6);
+      doc.line(rightColX, sy, rightColX + colWidth, sy);
+      sy += 12;
       doc.setFont('helvetica', 'bold');
       doc.text('Net pay', rightColX, sy);
       doc.text(st.re.net_pay.toFixed(2), rightColX + 190, sy);
     });
 
-    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     // Add page footers dynamically
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, settings?.use_company_branding ? `${settings.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -2018,6 +2036,7 @@ router.get('/remittance-report', async (c) => {
     // Get company details
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     // Query employee lines in finalized runs in this period
     const payments = await c.env.DB.prepare(`
@@ -2095,7 +2114,7 @@ router.get('/remittance-report', async (c) => {
     const metadata = [
       { label: 'Remittance period:', value: `${startDate} to ${endDate}` }
     ];
-    drawReportHeader(doc, 'Remittance report', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Remittance report', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2194,7 +2213,7 @@ router.get('/remittance-report', async (c) => {
     doc.setFontSize(8);
     doc.setTextColor('#43474f');
     doc.text('Province', 50, y);
-    doc.text('Workers Compensation Name', 160, y);
+    doc.text('Workers Comp Name', 160, y);
     doc.text('Assessable Earnings', 340, y, { align: 'right' });
     doc.text('Premium', pageWidth - 50, y, { align: 'right' });
     y += 8;
@@ -2212,7 +2231,7 @@ router.get('/remittance-report', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -2246,6 +2265,7 @@ router.get('/health-tax-report', async (c) => {
     // Get company details
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
@@ -2278,7 +2298,7 @@ router.get('/health-tax-report', async (c) => {
     const metadata = [
       { label: 'Tax Year:', value: year }
     ];
-    drawReportHeader(doc, 'Provincial health tax', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Provincial health tax', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2305,8 +2325,10 @@ router.get('/health-tax-report', async (c) => {
     y += 15;
 
     // Subtotal total line
+    y += 4;
+    doc.line(50, y, pageWidth - 50, y);
+    y += 12;
     doc.setFont('helvetica', 'bold');
-    doc.line(50, y - 5, pageWidth - 50, y - 5);
     doc.text('Total', 50, y);
     doc.text(formatReportCurrency(reportData.ytdPayroll), 320, y, { align: 'right' });
     doc.text(formatReportCurrency(reportData.ytdTaxAccrued), pageWidth - 50, y, { align: 'right' });
@@ -2318,7 +2340,7 @@ router.get('/health-tax-report', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -2368,6 +2390,7 @@ router.get('/deductions-expenses-summary', async (c) => {
 
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     let query = `
       SELECT pre.*, emp.first_name, emp.last_name, emp.pay_interval, emp.tax_exempt, emp.fit_exempt, emp.fit_withholding_amount, emp.override_fed_tax_credit, emp.fed_tax_credit_amount, emp.override_prov_tax_credit, emp.prov_tax_credit_amount, pr.period_start, pr.period_end, pr.company_id
@@ -2487,7 +2510,7 @@ router.get('/deductions-expenses-summary', async (c) => {
     const metadata = [
       { label: 'Period:', value: `From ${reportData.startDate} to ${reportData.endDate}*` }
     ];
-    drawReportHeader(doc, 'Deductions & expenses summary', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Deductions & expenses summary', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2556,7 +2579,7 @@ router.get('/deductions-expenses-summary', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -2587,6 +2610,7 @@ router.get('/employee-information', async (c) => {
 
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     let query = `
       SELECT emp.*, pg.name as pay_group_name, pg.pay_frequency as pay_group_frequency
@@ -2673,7 +2697,7 @@ router.get('/employee-information', async (c) => {
       { label: 'Period:', value: `From ${reportData.startDate} to ${reportData.endDate}` }
     ] : [];
     
-    drawReportHeader(doc, 'Employee information', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Employee information', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2712,7 +2736,7 @@ router.get('/employee-information', async (c) => {
       for (const emp of g.employees) {
         if (y > doc.internal.pageSize.getHeight() - 80) {
           doc.addPage();
-          drawReportHeader(doc, 'Employee information', reportData.companyName, []);
+          drawReportHeader(doc, 'Employee information', reportData.companyName, [], brandColor);
           y = 135;
           
           doc.setFont('helvetica', 'bold');
@@ -2769,7 +2793,7 @@ router.get('/employee-information', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -2798,6 +2822,10 @@ router.get('/employee-variance', async (c) => {
     const format = c.req.query('format');
 
     if (!runId) return c.json({ error: 'Missing run_id parameter' }, 400);
+
+    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
+    if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     const run = await c.env.DB.prepare(`
       SELECT pr.*, cs.legal_name, cs.pay_period as company_pay_period, pg.name as pay_group_name
@@ -3045,7 +3073,7 @@ router.get('/employee-variance', async (c) => {
       { label: 'Pay run:', value: `${run.period_start} - ${run.period_end}` },
       { label: 'Pay group:', value: reportData.payGroup }
     ];
-    drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -3138,7 +3166,7 @@ router.get('/employee-variance', async (c) => {
       const emp = reportData.employees[index];
       if (index > 0) {
         doc.addPage();
-        drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata);
+        drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata, brandColor);
         y = 135;
       }
       const titleStr = `Employee Code:   ${emp.employeeName} (${emp.employeeCode})`;
@@ -3147,7 +3175,7 @@ router.get('/employee-variance', async (c) => {
 
     if (reportData.employees.length > 1) {
       doc.addPage();
-      drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata);
+      drawReportHeader(doc, 'Employee variance', reportData.companyName, metadata, brandColor);
       y = 135;
 
       const summaryData = {
@@ -3189,11 +3217,10 @@ router.get('/employee-variance', async (c) => {
     doc.setFontSize(8);
     doc.text('¹ One or more calculated values in this transaction have been modified by a user', 50, y);
 
-    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -3228,6 +3255,7 @@ router.get('/payroll-detail', async (c) => {
 
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     let query = `
       SELECT pre.*, emp.first_name, emp.last_name, emp.pay_interval, emp.tax_exempt, emp.fit_exempt, emp.fit_withholding_amount, emp.override_fed_tax_credit, emp.fed_tax_credit_amount, emp.override_prov_tax_credit, emp.prov_tax_credit_amount,
@@ -3380,7 +3408,7 @@ router.get('/payroll-detail', async (c) => {
     const metadata = [
       { label: 'Period:', value: `From ${reportData.startDate} to ${reportData.endDate}` }
     ];
-    drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -3422,7 +3450,7 @@ router.get('/payroll-detail', async (c) => {
       for (const emp of g.employees) {
         if (y > doc.internal.pageSize.getHeight() - 80) {
           doc.addPage();
-          drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata);
+          drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata, brandColor);
           y = drawTableHeader(135);
         }
 
@@ -3435,7 +3463,7 @@ router.get('/payroll-detail', async (c) => {
         for (const r of emp.runs) {
           if (y > doc.internal.pageSize.getHeight() - 80) {
             doc.addPage();
-            drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata);
+            drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata, brandColor);
             y = drawTableHeader(135);
             doc.setFont('helvetica', 'bold');
             doc.text(`${emp.employeeName} (continued)`, 50, y);
@@ -3500,7 +3528,7 @@ router.get('/payroll-detail', async (c) => {
 
     if (y > doc.internal.pageSize.getHeight() - 80) {
       doc.addPage();
-      drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata);
+      drawReportHeader(doc, 'Payroll detail', reportData.companyName, metadata, brandColor);
       y = drawTableHeader(135);
     }
     
@@ -3529,7 +3557,7 @@ router.get('/payroll-detail', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -3557,6 +3585,10 @@ router.get('/payroll-variance', async (c) => {
     const format = c.req.query('format');
 
     if (!runId) return c.json({ error: 'Missing run_id parameter' }, 400);
+
+    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
+    if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     const run = await c.env.DB.prepare(`
       SELECT pr.*, cs.legal_name, cs.pay_period as company_pay_period, pg.name as pay_group_name
@@ -3720,7 +3752,7 @@ router.get('/payroll-variance', async (c) => {
       { label: 'Pay run end:', value: run.period_end },
       { label: 'Pay group:', value: reportData.payGroup }
     ];
-    drawReportHeader(doc, 'Payroll variance', reportData.companyName, metadata);
+    drawReportHeader(doc, 'Payroll variance', reportData.companyName, metadata, brandColor);
 
     let y = 135;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -3812,11 +3844,10 @@ router.get('/payroll-variance', async (c) => {
     doc.setFont('helvetica', 'italic');
     doc.text('¹ One or more calculated values in this transaction have been modified by a user', 50, y);
 
-    const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
@@ -3852,6 +3883,7 @@ router.get('/ytd-detail', async (c) => {
 
     const cs = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?').bind(companyId).first() as any;
     if (!cs) return c.json({ error: 'Company settings not found' }, 404);
+    const brandColor = cs.use_company_branding ? cs.brand_color : null;
 
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
@@ -4095,7 +4127,7 @@ router.get('/ytd-detail', async (c) => {
         { label: 'Tax Year:', value: String(year) },
         { label: 'Pay Group:', value: reportData.payGroupSelection },
         { label: 'Employee selection:', value: reportData.employeeSelection }
-      ]);
+      ], brandColor);
 
       let y = 135;
 
@@ -4207,7 +4239,7 @@ router.get('/ytd-detail', async (c) => {
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll');
+      drawReportFooter(doc, userEmail, i, totalPages, cs?.use_company_branding ? `${cs.legal_name} Payroll` : 'Gitpaid Payroll', brandColor);
     }
 
     const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
