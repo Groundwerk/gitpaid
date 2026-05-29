@@ -1254,12 +1254,14 @@ router.get('/net-pay', async (c) => {
           drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
           y = 135;
         }
-        doc.line(50, y - 5, pageWidth - 50, y - 5);
+        y += 5;
+        doc.line(50, y, pageWidth - 50, y);
+        y += 12;
         doc.setFont('helvetica', 'bold');
         doc.text(`${group.paymentMethod} total`, nameX, y);
         doc.text(`Employee count: ${group.employeeCount}`, codeX, y);
         doc.text(formatReportCurrency(group.totalNetPay), netPayX, y, { align: 'right' });
-        y += 25;
+        y += 20;
       }
 
       // Grand total row
@@ -1268,13 +1270,16 @@ router.get('/net-pay', async (c) => {
         drawReportHeader(doc, 'Net pay detail report', reportData.companyName, metadata, brandColor);
         y = 135;
       }
+      y += 5;
       doc.setLineWidth(1);
-      doc.line(50, y - 5, pageWidth - 50, y - 5);
+      doc.line(50, y, pageWidth - 50, y);
+      y += 12;
       doc.setFont('helvetica', 'bold');
       doc.text('Grand total', nameX, y);
       doc.text(formatReportCurrency(reportData.grandTotal), netPayX, y, { align: 'right' });
-      doc.line(50, y + 4, pageWidth - 50, y + 4);
-      doc.line(50, y + 6, pageWidth - 50, y + 6); // double underline
+      y += 5;
+      doc.line(50, y, pageWidth - 50, y);
+      doc.line(50, y + 2, pageWidth - 50, y + 2); // double underline
     }
 
     // Add page footers dynamically
@@ -1531,8 +1536,11 @@ router.get('/pay-run-summary', async (c) => {
       }
 
       if (isSubtotal) {
+        y += 5;
+        doc.setLineWidth(1);
+        doc.line(50, y, pageWidth - 50, y);
+        y += 12;
         doc.setFont('helvetica', 'bold');
-        doc.line(50, y - 5, pageWidth - 50, y - 5);
       } else {
         doc.setFont('helvetica', 'normal');
       }
@@ -1597,15 +1605,20 @@ router.get('/pay-run-summary', async (c) => {
     y += 10;
     
     // Total Salary Cost (double-underlined)
+    y += 5;
+    doc.setLineWidth(1.0);
+    doc.line(50, y, pageWidth - 50, y);
+    y += 12;
     doc.setFont('helvetica', 'bold');
     doc.text('Total salary cost', compX, y);
     doc.text('To company: total earnings + total benefits + total company contributions', compX, y + 12, { maxWidth: 200 });
     doc.text(formatReportCurrency(reportData.totals.salaryCost.cur), curX, y, { align: 'right' });
     doc.text(formatReportCurrency(reportData.totals.salaryCost.ytd), ytdX, y, { align: 'right' });
     
-    doc.line(50, y - 5, pageWidth - 50, y - 5);
-    doc.line(50, y + 26, pageWidth - 50, y + 26);
-    doc.line(50, y + 28, pageWidth - 50, y + 28); // double line
+    y += 24;
+    doc.setLineWidth(1.0);
+    doc.line(50, y, pageWidth - 50, y);
+    doc.line(50, y + 2, pageWidth - 50, y + 2); // double line
 
     // Add page footers dynamically
     const totalPages = (doc as any).internal.pages.length - 1;
@@ -1897,7 +1910,7 @@ router.get('/pay-statement', async (c) => {
       doc.setFont('helvetica', 'normal');
 
       // Other Information block (y = 440)
-      let oy = tabY + 90;
+      let oy = tabY + 120;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#43474f');
       doc.text('Other information', leftColX, oy);
@@ -1972,7 +1985,7 @@ router.get('/pay-statement', async (c) => {
       doc.setFont('helvetica', 'normal');
 
       // Deductions Summary Box (y = 440)
-      let sy = tabY + 90;
+      let sy = tabY + 120;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#43474f');
       doc.text('Summary', rightColX, sy);
@@ -2161,9 +2174,12 @@ router.get('/remittance-report', async (c) => {
     printRemittanceRow('', '', 'CNESST/CSST (box F)', 0.0);
     
     // Amount payable
+    y += 5;
+    doc.setLineWidth(1.0);
+    doc.line(50, y, midX - 20, y);
+    doc.line(midX + 10, y, pageWidth - 50, y);
+    y += 12;
     doc.setFont('helvetica', 'bold');
-    doc.line(50, y - 5, midX - 20, y - 5);
-    doc.line(midX + 10, y - 5, pageWidth - 50, y - 5);
     printRemittanceRow('Amount payable', reportData.federal.amountPayable, 'Amount payable', 0.0);
     
     y += 8;
@@ -2548,7 +2564,8 @@ router.get('/deductions-expenses-summary', async (c) => {
 
     y += 5;
     doc.setLineWidth(1);
-    doc.line(300, y - 5, pageWidth - 50, y - 5);
+    doc.line(240, y, pageWidth - 50, y);
+    y += 12;
     doc.setFont('helvetica', 'bold');
     doc.text('Statutory total', 50, y);
     doc.text(formatReportCurrency(reportData.totals.employee), 300, y, { align: 'right' });
@@ -2556,9 +2573,9 @@ router.get('/deductions-expenses-summary', async (c) => {
     doc.text(formatReportCurrency(reportData.totals.total), 480, y, { align: 'right' });
     doc.text(String(reportData.totals.employeeCount), pageWidth - 50, y, { align: 'right' });
     
-    y += 15;
-    doc.line(50, y - 5, pageWidth - 50, y - 5);
     y += 10;
+    doc.line(50, y, pageWidth - 50, y);
+    y += 12;
 
     doc.text('Grand total', 50, y);
     doc.text(formatReportCurrency(reportData.totals.employee), 300, y, { align: 'right' });
@@ -2568,7 +2585,7 @@ router.get('/deductions-expenses-summary', async (c) => {
 
     y += 5;
     doc.line(50, y, pageWidth - 50, y);
-    doc.line(50, y + 2, pageWidth - 50, y + 2);
+    doc.line(50, y + 2, pageWidth - 50, y + 2); // double underline
     
     y += 25;
     doc.setFont('helvetica', 'italic');
@@ -3487,29 +3504,38 @@ router.get('/payroll-detail', async (c) => {
           y += 12;
         }
 
-        doc.setLineWidth(0.5);
-        doc.line(140, y - 5, pageWidth - 50, y - 5);
-        
-        doc.text(emp.subtotals.hours > 0 ? (Math.round(emp.subtotals.hours * 100) / 100).toFixed(2) : '0.00', 170, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.gross), 230, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.cpp), 280, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.qpp), 330, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.ei), 380, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.qpip), 430, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.tax), 485, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.provTax), 545, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.otherDed), 615, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.add), 675, y, { align: 'right' });
-        doc.text(formatReportCurrency(emp.subtotals.netPay), pageWidth - 50, y, { align: 'right' });
-        
-        y += 18;
+        if (emp.runs.length > 1) {
+          y += 5;
+          doc.setLineWidth(0.5);
+          doc.line(140, y, pageWidth - 50, y);
+          y += 12;
+          doc.setFont('helvetica', 'bold');
+          doc.text('Subtotal', 110, y);
+          
+          doc.text(emp.subtotals.hours > 0 ? (Math.round(emp.subtotals.hours * 100) / 100).toFixed(2) : '0.00', 170, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.gross), 230, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.cpp), 280, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.qpp), 330, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.ei), 380, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.qpip), 430, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.tax), 485, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.provTax), 545, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.otherDed), 615, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.add), 675, y, { align: 'right' });
+          doc.text(formatReportCurrency(emp.subtotals.netPay), pageWidth - 50, y, { align: 'right' });
+          doc.setFont('helvetica', 'normal');
+          y += 15;
+        } else {
+          y += 5;
+        }
       }
 
+      y += 5;
       doc.setLineWidth(1);
-      doc.line(50, y - 5, pageWidth - 50, y - 5);
+      doc.line(50, y, pageWidth - 50, y);
+      y += 12;
       doc.setFont('helvetica', 'bold');
       doc.text(`${g.payGroupName} Total`, 50, y);
-      doc.text(`Employees: ${g.totals.employeeCount}`, 110, y + 10);
       
       doc.text(g.totals.hours > 0 ? (Math.round(g.totals.hours * 100) / 100).toFixed(2) : '0.00', 170, y, { align: 'right' });
       doc.text(formatReportCurrency(g.totals.gross), 230, y, { align: 'right' });
@@ -3523,7 +3549,11 @@ router.get('/payroll-detail', async (c) => {
       doc.text(formatReportCurrency(g.totals.add), 675, y, { align: 'right' });
       doc.text(formatReportCurrency(g.totals.netPay), pageWidth - 50, y, { align: 'right' });
 
-      y += 25;
+      y += 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(`Employees: ${g.totals.employeeCount}`, 110, y);
+      y += 20;
     }
 
     if (y > doc.internal.pageSize.getHeight() - 80) {
@@ -3532,11 +3562,12 @@ router.get('/payroll-detail', async (c) => {
       y = drawTableHeader(135);
     }
     
+    y += 5;
     doc.setLineWidth(1.5);
-    doc.line(50, y - 5, pageWidth - 50, y - 5);
+    doc.line(50, y, pageWidth - 50, y);
+    y += 12;
     doc.setFont('helvetica', 'bold');
     doc.text('Grand Total', 50, y);
-    doc.text(`Employees: ${reportData.grandTotals.employeeCount}`, 110, y + 10);
     
     doc.text(reportData.grandTotals.hours > 0 ? (Math.round(reportData.grandTotals.hours * 100) / 100).toFixed(2) : '0.00', 170, y, { align: 'right' });
     doc.text(formatReportCurrency(reportData.grandTotals.gross), 230, y, { align: 'right' });
@@ -3550,9 +3581,12 @@ router.get('/payroll-detail', async (c) => {
     doc.text(formatReportCurrency(reportData.grandTotals.add), 675, y, { align: 'right' });
     doc.text(formatReportCurrency(reportData.grandTotals.netPay), pageWidth - 50, y, { align: 'right' });
 
-    y += 15;
+    y += 12;
+    doc.text(`Employees: ${reportData.grandTotals.employeeCount}`, 110, y);
+    
+    y += 8;
     doc.line(50, y, pageWidth - 50, y);
-    doc.line(50, y + 2, pageWidth - 50, y + 2);
+    doc.line(50, y + 2, pageWidth - 50, y + 2); // double underline
 
     const totalPages = (doc as any).internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
