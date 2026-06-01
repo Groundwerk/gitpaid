@@ -267,9 +267,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
                             <p className="text-[10px] text-on-surface-variant font-medium">{emp.role} • {emp.department}</p>
                           </td>
                           <td className="py-3 px-4 text-xs font-semibold text-on-surface">
-                            {emp.pay_type === 'hourly' && `$${emp.rate.toFixed(2)}/hr`}
-                            {emp.pay_type === 'salary' && `$${emp.rate.toFixed(2)}/period`}
-                            {emp.pay_type === 'salary_commission' && `$${emp.rate.toFixed(2)} + Comm.`}
+                            {emp.pay_type === 'hourly' && `${formatCurrency(emp.rate)}/hr`}
+                            {emp.pay_type === 'salary' && `${formatCurrency(emp.rate)}/period`}
+                            {emp.pay_type === 'salary_commission' && `${formatCurrency(emp.rate)} + Comm.`}
                           </td>
                           <td className="py-3 px-4">
                             {emp.pay_type === 'hourly' && isSelected && (

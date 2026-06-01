@@ -1,7 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../utils/api';
-import { sanitizeNumericInput } from '../utils/helpers';
+import { sanitizeNumericInput, formatSIN, formatCurrencyInput } from '../utils/helpers';
 import type { Employee } from '../types';
+
+const defaultEmployeeState: Partial<Employee> = {
+  pay_group_id: null,
+  first_name: '',
+  last_name: '',
+  email: '',
+  role: '',
+  department: 'Engineering',
+  pay_type: 'salary',
+  rate: 0,
+  status: 'active',
+  cpp_exempt: 0,
+  ei_exempt: 0,
+  tax_exempt: 0,
+  avatar: '',
+  ytd_gross: 0,
+  ytd_net: 0,
+  ytd_cpp: 0,
+  ytd_cpp_employer: 0,
+  ytd_ei: 0,
+  ytd_ei_employer: 0,
+  ytd_tax: 0,
+  ytd_wsib: 0,
+  ytd_eht: 0,
+  ytd_vacation_accrued: 0,
+  ytd_vacation_paid: 0,
+  pay_interval: 'company',
+  sin: '',
+  start_date: '',
+  fit_exempt: 0,
+  fit_withholding_amount: 0.0,
+  override_fed_tax_credit: 0,
+  fed_tax_credit_amount: 15705.0,
+  override_prov_tax_credit: 0,
+  prov_tax_credit_amount: 12399.0,
+  wcb_exempt: 0,
+  wcb_rate: 0.0
+};
 
 interface EmployeeProfileViewProps {
   employeeId: number | null; // null for creating new
@@ -21,43 +59,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
   const [payGroups, setPayGroups] = useState<any[]>([]);
 
   // Form State
-  const [formData, setFormData] = useState<Partial<Employee>>({
-    pay_group_id: null,
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: '',
-    department: 'Engineering',
-    pay_type: 'salary',
-    rate: 0,
-    status: 'active',
-    cpp_exempt: 0,
-    ei_exempt: 0,
-    tax_exempt: 0,
-    avatar: '',
-    ytd_gross: 0,
-    ytd_net: 0,
-    ytd_cpp: 0,
-    ytd_cpp_employer: 0,
-    ytd_ei: 0,
-    ytd_ei_employer: 0,
-    ytd_tax: 0,
-    ytd_wsib: 0,
-    ytd_eht: 0,
-    ytd_vacation_accrued: 0,
-    ytd_vacation_paid: 0,
-    pay_interval: 'company',
-    sin: '',
-    start_date: '',
-    fit_exempt: 0,
-    fit_withholding_amount: 0.0,
-    override_fed_tax_credit: 0,
-    fed_tax_credit_amount: 15705.0,
-    override_prov_tax_credit: 0,
-    prov_tax_credit_amount: 12399.0,
-    wcb_exempt: 0,
-    wcb_rate: 0.0
-  });
+  const [formData, setFormData] = useState<Partial<Employee>>(defaultEmployeeState);
 
   useEffect(() => {
     async function loadPayGroups() {
@@ -97,6 +99,10 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
         }
       }
       loadEmployee();
+    } else {
+      setFormData(defaultEmployeeState);
+      setIsYtdMigrationEnabled(false);
+      setLoading(false);
     }
   }, [employeeId, isEdit]);
 
@@ -117,9 +123,17 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [id]: checked ? 1 : 0 }));
     } else {
+      let finalVal = value;
+      if (type === 'number') {
+        finalVal = sanitizeNumericInput(value);
+      } else if (id === 'sin') {
+        finalVal = formatSIN(value);
+      } else if (id === 'rate') {
+        finalVal = formatCurrencyInput(value);
+      }
       setFormData(prev => ({ 
         ...prev, 
-        [id]: type === 'number' ? sanitizeNumericInput(value) : value 
+        [id]: finalVal 
       }));
     }
   };
@@ -134,6 +148,11 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
     try {
       setSaving(true);
       const submissionData = { ...formData };
+      
+      if (submissionData.rate !== undefined) {
+        const cleanRate = String(submissionData.rate).replace(/\D/g, '');
+        submissionData.rate = cleanRate ? parseInt(cleanRate, 10) : 0;
+      }
       if (!isYtdMigrationEnabled && !isYtdLocked) {
         submissionData.ytd_gross = 0;
         submissionData.ytd_net = 0;
@@ -532,10 +551,9 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   {formData.pay_type === 'hourly' ? 'Hourly Pay Rate ($)' : 'Period Base Salary ($)'} *
                 </label>
                 <input 
-                  type="number" 
-                  step="0.01"
+                  type="text" 
                   id="rate" 
-                  value={formData.rate || ''} 
+                  value={formData.rate && formData.rate !== 0 ? formatCurrencyInput(String(formData.rate)) : ''} 
                   onChange={handleChange}
                   className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   required

@@ -143,31 +143,31 @@ const saveSettings = async (c: any) => {
           throw new Error(`Failed to generate pay group ID for ${group.name}`);
         }
 
-        // Calculate schedule dates
+        // Calculate schedule dates (most recently completed pay periods)
         let pStart: Date, pEnd: Date, pPayment: Date;
 
         if (group.frequency === 'weekly') {
-          pStart = new Date(currentMonday.getTime());
-          pEnd = new Date(Date.UTC(pStart.getUTCFullYear(), pStart.getUTCMonth(), pStart.getUTCDate() + 6));
-          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Next Friday
-        } else if (group.frequency === 'bi-weekly') {
           pStart = new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() - 7));
+          pEnd = new Date(Date.UTC(pStart.getUTCFullYear(), pStart.getUTCMonth(), pStart.getUTCDate() + 6));
+          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Friday following end
+        } else if (group.frequency === 'bi-weekly') {
+          pStart = new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() - 14));
           pEnd = new Date(Date.UTC(pStart.getUTCFullYear(), pStart.getUTCMonth(), pStart.getUTCDate() + 13));
-          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Next Friday
+          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Friday following end
         } else if (group.frequency === 'semi-monthly') {
           if (date <= 15) {
+            pStart = new Date(Date.UTC(year, month - 1, 16));
+            pEnd = new Date(Date.UTC(year, month, 0)); // last day of previous month
+            pPayment = new Date(Date.UTC(year, month, 5)); // 5th of current month
+          } else {
             pStart = new Date(Date.UTC(year, month, 1));
             pEnd = new Date(Date.UTC(year, month, 15));
-            pPayment = new Date(Date.UTC(year, month, 20));
-          } else {
-            pStart = new Date(Date.UTC(year, month, 16));
-            pEnd = new Date(Date.UTC(year, month + 1, 0)); // last day of current month
-            pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // 5th of next month
+            pPayment = new Date(Date.UTC(year, month, 20)); // 20th of current month
           }
         } else { // monthly
-          pStart = new Date(Date.UTC(year, month, 1));
-          pEnd = new Date(Date.UTC(year, month + 1, 0)); // last day of current month
-          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 15)); // 15th of next month
+          pStart = new Date(Date.UTC(year, month - 1, 1));
+          pEnd = new Date(Date.UTC(year, month, 0)); // last day of previous month
+          pPayment = new Date(Date.UTC(year, month, 15)); // 15th of current month
         }
 
         // Add statement to create the first open schedule period

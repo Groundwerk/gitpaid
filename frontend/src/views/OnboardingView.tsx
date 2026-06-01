@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../utils/api';
-import { sanitizeNumericInput } from '../utils/helpers';
+import { sanitizeNumericInput, formatSIN, formatBusinessNumber } from '../utils/helpers';
 import type { CompanySettings } from '../types';
 
 interface OnboardingViewProps {
@@ -48,9 +48,17 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       const checked = (e.target as HTMLInputElement).checked;
       setSettings(prev => ({ ...prev, [id]: checked ? 1 : 0 }));
     } else {
+      let finalVal = value;
+      if (type === 'number') {
+        finalVal = sanitizeNumericInput(value);
+      } else if (id === 'business_number') {
+        finalVal = formatBusinessNumber(value);
+      } else if (id === 'owner_sin') {
+        finalVal = formatSIN(value);
+      }
       setSettings(prev => ({
         ...prev,
-        [id]: type === 'number' ? sanitizeNumericInput(value) : value
+        [id]: finalVal
       }));
     }
   };
@@ -174,33 +182,33 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-between mb-8 relative px-4">
-          <div className="absolute left-8 right-8 h-0.5 bg-outline-variant -translate-y-1/2 z-0" style={{ top: '16px' }}>
+        <div className="relative flex items-center mb-8">
+          <div className="absolute h-0.5 bg-outline-variant -translate-y-1/2 z-0" style={{ left: '12.5%', right: '12.5%', top: '16px' }}>
             <div className="h-full bg-highlight transition-all duration-300" style={{ width: `${(step - 1) * 33.33}%` }}></div>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center">
+          <div className="flex-1 relative z-10 flex flex-col items-center text-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 1 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 1 ? <span className="material-symbols-outlined text-[16px]">check</span> : '1'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 1 ? 'text-primary' : 'text-on-surface-variant'}`}>Company</span>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center">
+          <div className="flex-1 relative z-10 flex flex-col items-center text-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 2 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 2 ? <span className="material-symbols-outlined text-[16px]">check</span> : '2'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 2 ? 'text-primary' : 'text-on-surface-variant'}`}>Contact</span>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center">
+          <div className="flex-1 relative z-10 flex flex-col items-center text-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 3 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               {step > 3 ? <span className="material-symbols-outlined text-[16px]">check</span> : '3'}
             </div>
             <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${step >= 3 ? 'text-primary' : 'text-on-surface-variant'}`}>Payroll &amp; Tax</span>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center">
+          <div className="flex-1 relative z-10 flex flex-col items-center text-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${step >= 4 ? 'bg-highlight text-on-highlight' : 'bg-surface-container border border-outline-variant text-on-surface-variant'}`}>
               4
             </div>

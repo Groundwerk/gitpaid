@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../utils/api';
-import { sanitizeNumericInput } from '../utils/helpers';
+import { sanitizeNumericInput, formatSIN, formatBusinessNumber } from '../utils/helpers';
 import type { CompanySettings } from '../types';
 
 interface SettingsViewProps {
@@ -175,7 +175,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const currentDay = today.getDay();
       const distanceToMon = currentDay === 0 ? -6 : 1 - currentDay;
       const start = new Date(today);
-      start.setDate(today.getDate() + distanceToMon);
+      start.setDate(today.getDate() + distanceToMon - 7); // previous week
       
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
@@ -187,7 +187,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const currentDay = today.getDay();
       const distanceToMon = currentDay === 0 ? -6 : 1 - currentDay;
       const start = new Date(today);
-      start.setDate(today.getDate() + distanceToMon);
+      start.setDate(today.getDate() + distanceToMon - 14); // previous bi-week
       
       const end = new Date(start);
       end.setDate(start.getDate() + 13);
@@ -200,22 +200,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const year = today.getFullYear();
       const month = today.getMonth();
       if (day <= 15) {
+        const start = new Date(year, month - 1, 16);
+        const end = new Date(year, month, 0);
+        const payment = new Date(year, month, 5);
+        return { start: formatDate(start), end: formatDate(end), payment: formatDate(payment) };
+      } else {
         const start = new Date(year, month, 1);
         const end = new Date(year, month, 15);
         const payment = new Date(year, month, 20);
-        return { start: formatDate(start), end: formatDate(end), payment: formatDate(payment) };
-      } else {
-        const start = new Date(year, month, 16);
-        const end = new Date(year, month + 1, 0); // Last day of month
-        const payment = new Date(year, month + 1, 5); // 5th of next month
         return { start: formatDate(start), end: formatDate(end), payment: formatDate(payment) };
       }
     } else { // monthly
       const year = today.getFullYear();
       const month = today.getMonth();
-      const start = new Date(year, month, 1);
-      const end = new Date(year, month + 1, 0); // Last day of month
-      const payment = new Date(year, month + 1, 1); // 1st of next month
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0); // Last day of previous month
+      const payment = new Date(year, month, 15); // 15th of current month
       return { start: formatDate(start), end: formatDate(end), payment: formatDate(payment) };
     }
   };
@@ -281,9 +281,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const checked = (e.target as HTMLInputElement).checked;
       setSettings(prev => ({ ...prev, [id]: checked ? 1 : 0 }));
     } else {
+      let finalVal = value;
+      if (type === 'number') {
+        finalVal = sanitizeNumericInput(value);
+      } else if (id === 'business_number') {
+        finalVal = formatBusinessNumber(value);
+      } else if (id === 'owner_sin') {
+        finalVal = formatSIN(value);
+      }
       setSettings(prev => ({ 
         ...prev, 
-        [id]: type === 'number' ? sanitizeNumericInput(value) : value 
+        [id]: finalVal 
       }));
     }
   };
@@ -292,6 +300,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     e.preventDefault();
     if (!settings.legal_name || !settings.business_number) {
       triggerToast('Legal Name and Business Number are mandatory fields.', 'error');
+      return;
+    }
+
+    // Basic BN15 validation: 9 digits + RP + 4 digits
+    const bnPattern = /^\d{9}RP\d{4}$/i;
+    const cleanBN = settings.business_number.replace(/\s+/g, '');
+    if (!bnPattern.test(cleanBN)) {
+      triggerToast('CRA Business Number must be 15 characters in the format: 123456789RP0001.', 'error');
       return;
     }
 
