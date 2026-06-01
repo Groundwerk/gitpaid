@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../utils/api';
-import { sanitizeNumericInput, formatSIN, formatBusinessNumber } from '../utils/helpers';
+import { sanitizeNumericInput, formatSIN, cleanSIN, formatBusinessNumber, cleanBusinessNumber, formatPhone, cleanPhone, formatPostalCode, cleanPostalCode } from '../utils/helpers';
+import { FormattedInput } from '../components/FormattedInput';
+import { NumericFormat } from 'react-number-format';
 import type { CompanySettings } from '../types';
 
 interface SettingsViewProps {
@@ -285,9 +287,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (type === 'number') {
         finalVal = sanitizeNumericInput(value);
       } else if (id === 'business_number') {
-        finalVal = formatBusinessNumber(value);
+        const clean = value.replace(/[^a-zA-Z0-9]/g, '');
+        let p1 = '';
+        let p2 = '';
+        let p3 = '';
+        let i = 0;
+        for (; i < clean.length && p1.length < 9; i++) {
+          if (/[0-9]/.test(clean[i])) p1 += clean[i];
+        }
+        for (; i < clean.length && p2.length < 2; i++) {
+          if (/[a-zA-Z]/.test(clean[i])) p2 += clean[i].toUpperCase();
+        }
+        for (; i < clean.length && p3.length < 4; i++) {
+          if (/[0-9]/.test(clean[i])) p3 += clean[i];
+        }
+        finalVal = p1 + p2 + p3;
       } else if (id === 'owner_sin') {
-        finalVal = formatSIN(value);
+        finalVal = value.replace(/\D/g, '').slice(0, 9);
       }
       setSettings(prev => ({ 
         ...prev, 
@@ -309,6 +325,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!bnPattern.test(cleanBN)) {
       triggerToast('CRA Business Number must be 15 characters in the format: 123456789RP0001.', 'error');
       return;
+    }
+
+    // Soft Postal Code validation
+    if (settings.postal_code?.trim()) {
+      const postalPattern = /^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/i;
+      const cleanPC = settings.postal_code.replace(/\s+/g, '');
+      if (!postalPattern.test(cleanPC)) {
+        triggerToast('Postal Code must be in the format: A1A 1A1.', 'error');
+        return;
+      }
     }
 
     try {
@@ -502,11 +528,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="business_number">CRA Business Number (BN15) *</label>
-                  <input 
-                    type="text" 
+                  <FormattedInput 
                     id="business_number"
-                    value={settings.business_number}
-                    onChange={handleChange}
+                    value={settings.business_number || ''}
+                    onChange={(val) => setSettings(prev => ({ ...prev, business_number: val }))}
+                    format={formatBusinessNumber}
+                    clean={cleanBusinessNumber}
                     placeholder="123456789 RP 0001"
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     required
@@ -528,11 +555,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="owner_sin">Owner's SIN</label>
-                  <input 
-                    type="text" 
+                  <FormattedInput 
                     id="owner_sin"
                     value={settings.owner_sin || ''}
-                    onChange={handleChange}
+                    onChange={(val) => setSettings(prev => ({ ...prev, owner_sin: val }))}
+                    format={formatSIN}
+                    clean={cleanSIN}
                     placeholder="e.g. 123-456-789"
                     className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
@@ -712,11 +740,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="postal_code">Postal Code</label>
-                  <input 
-                    type="text" 
+                  <FormattedInput 
                     id="postal_code"
-                    value={settings.postal_code}
-                    onChange={handleChange}
+                    value={settings.postal_code || ''}
+                    onChange={(val) => setSettings(prev => ({ ...prev, postal_code: val }))}
+                    format={formatPostalCode}
+                    clean={cleanPostalCode}
+                    placeholder="M5H 2Y2"
                     className="h-10 border border-outline-variant rounded px-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   />
                 </div>
@@ -750,11 +780,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="contact_phone">Phone Number</label>
-                    <input 
-                      type="text" 
+                    <FormattedInput 
                       id="contact_phone"
                       value={settings.contact_phone || ''}
-                      onChange={handleChange}
+                      onChange={(val) => setSettings(prev => ({ ...prev, contact_phone: val }))}
+                      format={formatPhone}
+                      clean={cleanPhone}
+                      placeholder="1 (416) 555-0199"
                       className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                     />
                   </div>
@@ -791,12 +823,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {/* WSIB Rate */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="wsib_rate">WSIB Premium Rate (%)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="wsib_rate"
-                    value={settings.wsib_rate}
-                    onChange={handleChange}
+                    value={settings.wsib_rate !== undefined ? settings.wsib_rate : ''}
+                    onValueChange={(values) => {
+                      setSettings(prev => ({ ...prev, wsib_rate: values.floatValue ?? 0 }));
+                    }}
+                    suffix="%"
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                   <p className="text-[10px] text-on-surface-variant leading-tight">
@@ -833,12 +869,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {/* EHT Rate */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="eht_rate">EHT Premium Rate (%)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="eht_rate"
-                    value={settings.eht_rate}
-                    onChange={handleChange}
+                    value={settings.eht_rate !== undefined ? settings.eht_rate : ''}
+                    onValueChange={(values) => {
+                      setSettings(prev => ({ ...prev, eht_rate: values.floatValue ?? 0 }));
+                    }}
+                    suffix="%"
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant bg-surface-container-lowest rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                 </div>
@@ -866,12 +906,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="vacation_rate">Default Vacation Accrual (%)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="vacation_rate"
-                    value={settings.vacation_rate}
-                    onChange={handleChange}
+                    value={settings.vacation_rate !== undefined ? settings.vacation_rate : ''}
+                    onValueChange={(values) => {
+                      setSettings(prev => ({ ...prev, vacation_rate: values.floatValue ?? 0 }));
+                    }}
+                    suffix="%"
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                 </div>
@@ -893,12 +937,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="override_ei_employer_rate">EI Employer Rate Override</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="override_ei_employer_rate"
                     value={settings.override_ei_employer_rate !== undefined ? settings.override_ei_employer_rate : 1.4}
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setSettings(prev => ({ ...prev, override_ei_employer_rate: values.floatValue ?? 1.4 }));
+                    }}
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                   />
                   <p className="text-[10px] text-on-surface-variant leading-tight">

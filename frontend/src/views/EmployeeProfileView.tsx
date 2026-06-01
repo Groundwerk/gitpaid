@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../utils/api';
-import { sanitizeNumericInput, formatSIN, formatCurrencyInput } from '../utils/helpers';
+import { sanitizeNumericInput, formatSIN, cleanSIN } from '../utils/helpers';
+import { FormattedInput } from '../components/FormattedInput';
+import { NumericFormat } from 'react-number-format';
 import type { Employee } from '../types';
 
 const defaultEmployeeState: Partial<Employee> = {
@@ -73,6 +75,8 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
     loadPayGroups();
   }, []);
 
+  const [isYtdLocked, setIsYtdLocked] = useState(false);
+
   useEffect(() => {
     if (isEdit && employeeId) {
       async function loadEmployee() {
@@ -90,6 +94,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                               (data.ytd_vacation_accrued || 0) > 0 ||
                               (data.ytd_vacation_paid || 0) > 0;
           setIsYtdMigrationEnabled(hasYtdValue || !!data.has_payruns);
+          setIsYtdLocked(hasYtdValue || !!data.has_payruns);
         } catch (error) {
           console.error('Error loading employee profile:', error);
           triggerToast('Failed to load employee details.', 'error');
@@ -102,20 +107,10 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
     } else {
       setFormData(defaultEmployeeState);
       setIsYtdMigrationEnabled(false);
+      setIsYtdLocked(false);
       setLoading(false);
     }
   }, [employeeId, isEdit]);
-
-  const hasYtdHistory = (formData.ytd_gross || 0) > 0 ||
-                        (formData.ytd_net || 0) > 0 ||
-                        (formData.ytd_cpp || 0) > 0 ||
-                        (formData.ytd_ei || 0) > 0 ||
-                        (formData.ytd_tax || 0) > 0 ||
-                        (formData.ytd_wsib || 0) > 0 ||
-                        (formData.ytd_eht || 0) > 0 ||
-                        (formData.ytd_vacation_accrued || 0) > 0 ||
-                        (formData.ytd_vacation_paid || 0) > 0;
-  const isYtdLocked = hasYtdHistory || !!formData.has_payruns;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value, type } = e.target;
@@ -123,13 +118,14 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [id]: checked ? 1 : 0 }));
     } else {
-      let finalVal = value;
+      let finalVal: any = value;
       if (type === 'number') {
         finalVal = sanitizeNumericInput(value);
       } else if (id === 'sin') {
-        finalVal = formatSIN(value);
+        finalVal = value.replace(/\D/g, '').slice(0, 9);
       } else if (id === 'rate') {
-        finalVal = formatCurrencyInput(value);
+        const cleanRate = value.replace(/\D/g, '');
+        finalVal = cleanRate ? parseInt(cleanRate, 10) : 0;
       }
       setFormData(prev => ({ 
         ...prev, 
@@ -148,11 +144,6 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
     try {
       setSaving(true);
       const submissionData = { ...formData };
-      
-      if (submissionData.rate !== undefined) {
-        const cleanRate = String(submissionData.rate).replace(/\D/g, '');
-        submissionData.rate = cleanRate ? parseInt(cleanRate, 10) : 0;
-      }
       if (!isYtdMigrationEnabled && !isYtdLocked) {
         submissionData.ytd_gross = 0;
         submissionData.ytd_net = 0;
@@ -305,12 +296,13 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sin">SIN (Social Insurance Number)</label>
-                <input 
-                  type="text" 
-                  id="sin" 
-                  value={formData.sin || ''} 
-                  onChange={handleChange}
-                  placeholder="e.g. 123 456 789"
+                <FormattedInput 
+                  id="sin"
+                  value={formData.sin || ''}
+                  onChange={(val) => setFormData(prev => ({ ...prev, sin: val }))}
+                  format={formatSIN}
+                  clean={cleanSIN}
+                  placeholder="e.g. 123-456-789"
                   className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight focus:ring-offset-2 bg-transparent w-full"
                 />
               </div>
@@ -356,133 +348,177 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_gross">YTD Gross Earnings</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_gross" 
                     value={formData.ytd_gross || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_gross: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_net">YTD Net Pay</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_net" 
                     value={formData.ytd_net || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_net: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_cpp">YTD CPP Deducted (Employee)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_cpp" 
                     value={formData.ytd_cpp || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_cpp: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_cpp_employer">YTD CPP Match (Employer)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_cpp_employer" 
                     value={formData.ytd_cpp_employer || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_cpp_employer: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_ei">YTD EI Deducted (Employee)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_ei" 
                     value={formData.ytd_ei || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_ei: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_ei_employer">YTD EI Match (Employer)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_ei_employer" 
                     value={formData.ytd_ei_employer || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_ei_employer: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_tax">YTD Income Tax</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_tax" 
                     value={formData.ytd_tax || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_tax: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_wsib">YTD WSIB Premium</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_wsib" 
                     value={formData.ytd_wsib || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_wsib: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_eht">YTD EHT Premium</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_eht" 
                     value={formData.ytd_eht || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_eht: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_vacation_accrued">YTD Vacation Accrued</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_vacation_accrued" 
                     value={formData.ytd_vacation_accrued || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_vacation_accrued: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="ytd_vacation_paid">YTD Vacation Paid</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
+                  <NumericFormat
                     id="ytd_vacation_paid" 
                     value={formData.ytd_vacation_paid || ''} 
-                    onChange={handleChange}
+                    onValueChange={(values) => {
+                      setFormData(prev => ({ ...prev, ytd_vacation_paid: values.floatValue ?? 0 }));
+                    }}
                     disabled={isYtdLocked}
+                    thousandSeparator={true}
+                    prefix="$"
+                    decimalScale={2}
+                    allowNegative={false}
                     className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold text-primary focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -550,11 +586,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="rate">
                   {formData.pay_type === 'hourly' ? 'Hourly Pay Rate ($)' : 'Period Base Salary ($)'} *
                 </label>
-                <input 
-                  type="text" 
+                <NumericFormat
                   id="rate" 
-                  value={formData.rate && formData.rate !== 0 ? formatCurrencyInput(String(formData.rate)) : ''} 
-                  onChange={handleChange}
+                  value={formData.rate && formData.rate !== 0 ? formData.rate : ''} 
+                  onValueChange={(values) => {
+                    setFormData(prev => ({ ...prev, rate: values.floatValue ?? 0 }));
+                  }}
+                  thousandSeparator={true}
+                  prefix="$"
+                  decimalScale={0}
+                  allowNegative={false}
                   className="h-10 border border-outline-variant rounded px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
                   required
                 />
@@ -662,12 +703,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                 {formData.fit_exempt !== 1 && (
                   <div className="flex flex-col gap-1.5 pl-8 animate-fade-in">
                     <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="fit_withholding_amount">Additional Withholding ($)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <NumericFormat
                       id="fit_withholding_amount" 
                       value={formData.fit_withholding_amount || ''} 
-                      onChange={handleChange}
+                      onValueChange={(values) => {
+                        setFormData(prev => ({ ...prev, fit_withholding_amount: values.floatValue ?? 0 }));
+                      }}
+                      prefix="$"
+                      thousandSeparator={true}
+                      decimalScale={2}
+                      allowNegative={false}
                       className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
@@ -699,12 +744,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                 {formData.override_fed_tax_credit === 1 && (
                   <div className="flex flex-col gap-1.5 pl-8 animate-fade-in">
                     <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="fed_tax_credit_amount">Claim Amount ($)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <NumericFormat
                       id="fed_tax_credit_amount" 
                       value={formData.fed_tax_credit_amount || ''} 
-                      onChange={handleChange}
+                      onValueChange={(values) => {
+                        setFormData(prev => ({ ...prev, fed_tax_credit_amount: values.floatValue ?? 0 }));
+                      }}
+                      prefix="$"
+                      thousandSeparator={true}
+                      decimalScale={2}
+                      allowNegative={false}
                       className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
@@ -736,12 +785,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                 {formData.override_prov_tax_credit === 1 && (
                   <div className="flex flex-col gap-1.5 pl-8 animate-fade-in">
                     <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="prov_tax_credit_amount">Claim Amount ($)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <NumericFormat
                       id="prov_tax_credit_amount" 
                       value={formData.prov_tax_credit_amount || ''} 
-                      onChange={handleChange}
+                      onValueChange={(values) => {
+                        setFormData(prev => ({ ...prev, prov_tax_credit_amount: values.floatValue ?? 0 }));
+                      }}
+                      prefix="$"
+                      thousandSeparator={true}
+                      decimalScale={2}
+                      allowNegative={false}
                       className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />
                   </div>
@@ -773,12 +826,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                 {formData.wcb_exempt !== 1 && (
                   <div className="flex flex-col gap-1.5 pl-8 animate-fade-in">
                     <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="wcb_rate">WSIB Rate Override (%)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <NumericFormat
                       id="wcb_rate" 
                       value={formData.wcb_rate || ''} 
-                      onChange={handleChange}
+                      onValueChange={(values) => {
+                        setFormData(prev => ({ ...prev, wcb_rate: values.floatValue ?? 0 }));
+                      }}
+                      suffix="%"
+                      thousandSeparator={true}
+                      decimalScale={2}
+                      allowNegative={false}
                       placeholder="Use Company Rate"
                       className="h-9 border border-outline-variant bg-surface-container-lowest rounded px-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-highlight w-full"
                     />

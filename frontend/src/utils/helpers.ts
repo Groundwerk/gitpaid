@@ -22,53 +22,71 @@ export function sanitizeNumericInput(val: string): string {
   return sanitized;
 }
 
+export function cleanSIN(val: string): string {
+  return val.replace(/\D/g, '').slice(0, 9);
+}
+
 export function formatSIN(val: string): string {
-  const digits = val.replace(/\D/g, '').slice(0, 9);
+  const digits = cleanSIN(val);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+export function cleanBusinessNumber(val: string): string {
+  return val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 15);
+}
+
 export function formatBusinessNumber(val: string): string {
-  const raw = val.replace(/[^a-zA-Z0-9]/g, '');
-  
-  let p1 = '';
-  let p2 = '';
-  let p3 = '';
-  
-  let i = 0;
-  
-  // Extract up to 9 digits for part 1
-  for (; i < raw.length && p1.length < 9; i++) {
-    if (/[0-9]/.test(raw[i])) {
-      p1 += raw[i];
-    }
+  const clean = cleanBusinessNumber(val);
+  if (clean.length <= 9) {
+    return clean;
   }
-  
-  // Extract up to 2 letters for part 2 (program code)
-  for (; i < raw.length && p2.length < 2; i++) {
-    if (/[a-zA-Z]/.test(raw[i])) {
-      p2 += raw[i].toUpperCase();
-    }
-  }
-  
-  // Extract up to 4 digits for part 3
-  for (; i < raw.length && p3.length < 4; i++) {
-    if (/[0-9]/.test(raw[i])) {
-      p3 += raw[i];
-    }
-  }
-  
-  if (p1.length < 9) {
-    return p1;
-  }
-  if (p2.length === 0) {
-    return p1;
-  }
-  if (p3.length === 0) {
+  const p1 = clean.slice(0, 9);
+  if (clean.length <= 11) {
+    const p2 = clean.slice(9);
     return `${p1} ${p2}`;
   }
+  const p2 = clean.slice(9, 11);
+  const p3 = clean.slice(11);
   return `${p1} ${p2} ${p3}`;
+}
+
+export function cleanPhone(val: string): string {
+  const cleaned = val.replace(/\D/g, '');
+  if (!cleaned) return '';
+  
+  if (cleaned.startsWith('1')) {
+    return cleaned.slice(0, 11);
+  }
+  return cleaned.slice(0, 10);
+}
+
+export function formatPhone(val: string): string {
+  const cleaned = cleanPhone(val);
+  if (!cleaned) return '';
+  
+  if (cleaned.startsWith('1')) {
+    const rest = cleaned.slice(1);
+    if (rest.length === 0) return '1';
+    if (rest.length <= 3) return `1 (${rest}`;
+    if (rest.length <= 6) return `1 (${rest.slice(0, 3)}) ${rest.slice(3)}`;
+    return `1 (${rest.slice(0, 3)}) ${rest.slice(3, 6)}-${rest.slice(6, 10)}`;
+  }
+  
+  if (cleaned.length <= 3) return cleaned;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+}
+
+export function cleanPostalCode(val: string): string {
+  return val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+}
+
+export function formatPostalCode(val: string): string {
+  const clean = cleanPostalCode(val);
+  if (clean.length <= 3) return clean;
+  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
 }
 
 export function formatCurrencyInput(val: string): string {
