@@ -112,6 +112,77 @@ const saveSettings = async (c: any) => {
         throw new Error('Failed to generate company ID');
       }
 
+      // Seed the 4 default pay groups and their first open schedule period
+      const defaultGroups = [
+        { name: 'Default Weekly Group', frequency: 'weekly' },
+        { name: 'Default Bi-Weekly Group', frequency: 'bi-weekly' },
+        { name: 'Default Semi-Monthly Group', frequency: 'semi-monthly' },
+        { name: 'Default Monthly Group', frequency: 'monthly' }
+      ];
+
+      const now = new Date();
+      const year = now.getUTCFullYear();
+      const month = now.getUTCMonth();
+      const date = now.getUTCDate();
+      const day = now.getUTCDay();
+
+      // Monday of the current week (UTC)
+      const currentMonday = new Date(Date.UTC(year, month, date - ((day + 6) % 7)));
+      const formatDate = (d: Date) => d.toISOString().split('T')[0];
+      const statements = [];
+
+      for (const group of defaultGroups) {
+        // Insert group
+        const pgResult = await c.env.DB.prepare(`
+          INSERT INTO pay_groups (company_id, name, pay_frequency)
+          VALUES (?, ?, ?)
+        `).bind(newCompanyId, group.name, group.frequency).run();
+
+        const pgId = pgResult.meta.last_row_id;
+        if (!pgId) {
+          throw new Error(`Failed to generate pay group ID for ${group.name}`);
+        }
+
+        // Calculate schedule dates
+        let pStart: Date, pEnd: Date, pPayment: Date;
+
+        if (group.frequency === 'weekly') {
+          pStart = new Date(currentMonday.getTime());
+          pEnd = new Date(Date.UTC(pStart.getUTCFullYear(), pStart.getUTCMonth(), pStart.getUTCDate() + 6));
+          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Next Friday
+        } else if (group.frequency === 'bi-weekly') {
+          pStart = new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() - 7));
+          pEnd = new Date(Date.UTC(pStart.getUTCFullYear(), pStart.getUTCMonth(), pStart.getUTCDate() + 13));
+          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // Next Friday
+        } else if (group.frequency === 'semi-monthly') {
+          if (date <= 15) {
+            pStart = new Date(Date.UTC(year, month, 1));
+            pEnd = new Date(Date.UTC(year, month, 15));
+            pPayment = new Date(Date.UTC(year, month, 20));
+          } else {
+            pStart = new Date(Date.UTC(year, month, 16));
+            pEnd = new Date(Date.UTC(year, month + 1, 0)); // last day of current month
+            pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 5)); // 5th of next month
+          }
+        } else { // monthly
+          pStart = new Date(Date.UTC(year, month, 1));
+          pEnd = new Date(Date.UTC(year, month + 1, 0)); // last day of current month
+          pPayment = new Date(Date.UTC(pEnd.getUTCFullYear(), pEnd.getUTCMonth(), pEnd.getUTCDate() + 15)); // 15th of next month
+        }
+
+        // Add statement to create the first open schedule period
+        statements.push(
+          c.env.DB.prepare(`
+            INSERT INTO pay_schedules (pay_group_id, period_start, period_end, payment_date, status)
+            VALUES (?, ?, ?, ?, 'open')
+          `).bind(pgId, formatDate(pStart), formatDate(pEnd), formatDate(pPayment))
+        );
+      }
+
+      if (statements.length > 0) {
+        await c.env.DB.batch(statements);
+      }
+
       // 2. Associate the company ID with the logged-in user
       await c.env.DB.prepare('UPDATE users SET company_id = ? WHERE email = ?')
         .bind(newCompanyId, email)

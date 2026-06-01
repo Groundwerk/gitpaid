@@ -187,4 +187,30 @@ describe('2. Hono REST API Routes Integration', () => {
     const json = await res.json() as any;
     expect(json.legal_name).toBe('Acme Test Solutions');
   });
+
+  it('POST /api/settings should allow authorized onboarding and seed default groups', async () => {
+    const token = await sign({ email: 'newuser@company.com', name: 'New User', companyId: null, exp: Math.floor(Date.now() / 1000) + 100 }, 'test-secret-12345');
+    const res = await app.request('/api/settings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        legal_name: 'New Company Inc',
+        business_number: '987654321 RP 0001',
+        wsib_rate: 2.5,
+        eht_exempt: true,
+        eht_rate: 1.95,
+        vacation_rate: 4.0,
+        pay_period: 'bi-weekly'
+      })
+    }, testEnv);
+
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.token).toBeDefined();
+    expect(json.companyId).toBe(1);
+    expect(json.message).toBe('Onboarding settings successfully saved');
+  });
 });
