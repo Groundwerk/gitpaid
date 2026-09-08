@@ -69,15 +69,16 @@ export class WiseApiError extends Error {
 
 type FetchImpl = (url: string, init?: any) => Promise<any>;
 
-export async function wiseGet(token: string, path: string, fetchImpl: FetchImpl = fetch): Promise<any> {
+export async function wiseGet(token: string, path: string, fetchImpl: FetchImpl = fetch, label = 'Wise API'): Promise<any> {
   const res = await fetchImpl(`https://api.wise.com${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    throw new WiseApiError(res.status ?? 500, `Wise API rejected the request (HTTP ${res.status ?? 'unknown'}).`);
+    throw new WiseApiError(res.status ?? 500, `${label} rejected the request (HTTP ${res.status ?? 'unknown'}).`);
   }
   return res.json();
 }
+
 
 export interface WiseBalanceRef {
   profileId: number;
@@ -89,12 +90,12 @@ export async function discoverBalance(
   currency: string,
   fetchImpl: FetchImpl = fetch
 ): Promise<WiseBalanceRef> {
-  const profiles = await wiseGet(token, '/v1/profiles', fetchImpl);
+  const profiles = await wiseGet(token, '/v1/profiles', fetchImpl, 'Wise profiles');
   if (!Array.isArray(profiles) || profiles.length === 0) {
     throw new WiseApiError(404, 'No Wise profiles found on this token.');
   }
   const personal = profiles.find((p) => p?.type === 'personal') ?? profiles[0];
-  const accounts = await wiseGet(token, `/v1/borderless-accounts?profileId=${personal.id}`, fetchImpl);
+  const accounts = await wiseGet(token, `/v1/borderless-accounts?profileId=${personal.id}`, fetchImpl, 'Wise balances');
   if (!Array.isArray(accounts) || accounts.length === 0) {
     throw new WiseApiError(404, 'No Wise balances found on this profile.');
   }
@@ -116,16 +117,12 @@ export async function fetchCredits(
     : now.getTime() - (opts.days ?? 90) * 24 * 60 * 60 * 1000;
   const start = new Date(startMs).toISOString();
   const { balanceId } = await discoverBalance(token, currency, fetchImpl);
-  const qs = new URLSearchParams({
-    currency,
-    intervalStart: start,
-    intervalEnd: end,
-    type: 'COMPACT',
-  });
+  const qs = new URLSearchParams({ currency, intervalStart: start, intervalEnd: end, type: 'COMPACT' });
   const statement = await wiseGet(
     token,
     `/v1/borderless-accounts/${balanceId}/statement.json?${qs.toString()}`,
-    fetchImpl
+    fetchImpl,
+    'Wise statement'
   );
   return extractCredits(statement, currency);
 }
