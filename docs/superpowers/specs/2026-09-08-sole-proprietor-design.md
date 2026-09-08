@@ -21,8 +21,7 @@ Onboarding: step-0 picker — "Register a company" vs "Register as sole propriet
 
 New `calculateSolePropObligations()` in backend next to `calculatePayrollDeductions()` (shared `calculateProgressiveTax()` helper). New `solePropTaxTables.ts`: 2026 CRA figures single source (federal + Ontario brackets, CPP rate/ YMPE, CPP2 rate/YAMPE, basic exemptions); 2025 backfill for partial-year starts. Current 2024 tables stay for payroll; sole-prop never reads them.
 
-Per-deposit math: federal + Ontario progressive tax on cumulative CAD net; CPP at 2x employee rate on pensionable earnings up to YMPE minus opening balances; CPP2 on YMPE→YAMPE band minus opening; EI = 0.
-
+Per-deposit math: federal + Ontario progressive tax on cumulative CAD net, keyed by the deposit's tax year (2025 vs 2026 tables); CPP at 2x employee rate on pensionable earnings up to YMPE minus opening balances; CPP2 on YMPE→YAMPE band minus opening; EI = 0.
 Schedule rule: start calendar year = one annual row due Apr 30 Y+1 (covers the Aug-2026 → Apr-30-2027 case: track running estimate, nothing payable before then). From Jan Y2, auto-generate quarterly rows due Mar 15 / Jun 15 / Sep 15 / Dec 15, each sized from deposits since the previous due date. Backdated deposits recompute all downstream rows with a UI warning.
 
 ## 3. Deposits, FX, GST threshold
