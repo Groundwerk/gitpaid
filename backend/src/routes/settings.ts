@@ -63,10 +63,22 @@ const saveSettings = async (c: any) => {
       override_ei_employer_rate = 1.4,
       logo_url = null,
       brand_color = null,
-      use_company_branding = 0
+      use_company_branding = 0,
+      account_type = 'company',
+      sole_prop_start_date = null,
+      sole_prop_business_number = null,
+      sole_prop_ytd_pensionable = 0,
+      sole_prop_ytd_cpp = 0,
+      sole_prop_ytd_cpp2 = 0
     } = await c.req.json();
 
-    if (!legal_name || !business_number) {
+    const accountType = account_type === 'sole_prop' ? 'sole_prop' : 'company';
+
+    if (accountType === 'sole_prop') {
+      if (!legal_name) {
+        return c.json({ error: 'Legal Name is mandatory' }, 400);
+      }
+    } else if (!legal_name || !business_number) {
       return c.json({ error: 'Legal Name and Business Number are mandatory' }, 400);
     }
 
@@ -77,12 +89,12 @@ const saveSettings = async (c: any) => {
           legal_name, operating_name, business_number, address_line1, city, postal_code,
           contact_name, contact_email, wsib_number, wsib_rate, eht_exempt, eht_rate, vacation_rate, pay_period,
           owner_sin, business_type, remittance_frequency, contact_phone, address_line2, province, override_ei_employer_rate,
-          logo_url, brand_color, use_company_branding
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          logo_url, brand_color, use_company_branding, account_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         legal_name,
         operating_name || null,
-        business_number,
+        business_number || '',
         address_line1 || null,
         city || null,
         postal_code || null,
@@ -103,7 +115,8 @@ const saveSettings = async (c: any) => {
         parseFloat(override_ei_employer_rate) || 1.4,
         logo_url || null,
         brand_color || null,
-        use_company_branding ? 1 : 0
+        use_company_branding ? 1 : 0,
+        accountType
       ).run();
 
       // Retrieve the newly created ID
@@ -131,7 +144,8 @@ const saveSettings = async (c: any) => {
       const formatDate = (d: Date) => d.toISOString().split('T')[0];
       const statements = [];
 
-      for (const group of defaultGroups) {
+      // Sole proprietors have no pay groups; the empty loop below naturally skips seeding.
+      for (const group of (accountType === 'sole_prop' ? [] : defaultGroups)) {
         // Insert group
         const pgResult = await c.env.DB.prepare(`
           INSERT INTO pay_groups (company_id, name, pay_frequency)
@@ -181,6 +195,24 @@ const saveSettings = async (c: any) => {
 
       if (statements.length > 0) {
         await c.env.DB.batch(statements);
+      }
+      if (accountType === 'sole_prop') {
+        const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(sole_prop_start_date || ''))
+          ? String(sole_prop_start_date)
+          : new Date().toISOString().split('T')[0];
+        const bnDigits = String(sole_prop_business_number ?? business_number ?? '').replace(/\D/g, '');
+        await c.env.DB.prepare(`
+          INSERT INTO sole_prop_profile
+            (company_id, business_number, start_date, province, ytd_pensionable_opening, ytd_cpp_opening, ytd_cpp2_opening, instalment_mode)
+          VALUES (?, ?, ?, 'ON', ?, ?, ?, 'quarterly')
+        `).bind(
+          newCompanyId,
+          bnDigits.length === 9 ? bnDigits : null,
+          startDate,
+          Number(sole_prop_ytd_pensionable) || 0,
+          Number(sole_prop_ytd_cpp) || 0,
+          Number(sole_prop_ytd_cpp2) || 0
+        ).run();
       }
 
       // 2. Associate the company ID with the logged-in user

@@ -1,0 +1,304 @@
+import { Hono } from 'hono';
+import {
+  calculateSolePropObligations,
+  buildInstalmentSchedule,
+  allocateToInstalments,
+  gstStatus,
+} from '../services/solePropEngine';
+
+const router = new Hono<{
+  Bindings: {
+    DB: D1Database;
+  };
+}>();
+
+const FX_CURRENCIES = ['USD', 'EUR', 'GBP'];
+
+const round2 = (x: number) => Math.round(x * 100) / 100;
+
+function getCompanyId(c: any): number {
+  const payload = c.get('jwtPayload');
+  return payload?.companyId;
+}
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+async function loadWorkspace(db: any, companyId: number) {
+  const settings = await db
+    .prepare('SELECT * FROM company_settings WHERE id = ?')
+    .bind(companyId)
+    .first() as any;
+  if (!settings || settings.account_type !== 'sole_prop') {
+    return { error: 'Sole proprietor workspace required', status: 403 as const };
+  }
+  const profile = await db
+    .prepare('SELECT * FROM sole_prop_profile WHERE company_id = ?')
+    .bind(companyId)
+    .first() as any;
+  if (!profile) {
+    return { error: 'Sole proprietor profile not found', status: 404 as const };
+  }
+  return { settings, profile };
+}
+
+async function liveDeposits(db: any, companyId: number) {
+  const res = await db
+    .prepare('SELECT * FROM sole_prop_deposits WHERE company_id = ? ORDER BY received_date ASC, id ASC')
+    .bind(companyId)
+    .all() as any;
+  const rows: any[] = res?.results ?? [];
+  return rows.filter((d) => !d.voided);
+}
+
+async function buildOverview(db: any, companyId: number, profile: any) {
+  const deposits = await liveDeposits(db, companyId);
+  const totals = {
+    cad: round2(deposits.reduce((s, d) => s + d.cad_amount, 0)),
+    tax: round2(deposits.reduce((s, d) => s + d.tax_owed, 0)),
+    cpp: round2(deposits.reduce((s, d) => s + d.cpp_owed, 0)),
+    cpp2: round2(deposits.reduce((s, d) => s + d.cpp2_owed, 0)),
+  };
+  const instRes = await db
+    .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ? ORDER BY due_date ASC')
+    .bind(companyId)
+    .all() as any;
+  const gst = gstStatus(
+    deposits.map((d) => ({ received_date: d.received_date, cad_amount: d.cad_amount, voided: 0 })),
+    todayStr()
+  );
+  return {
+    profile,
+    totals,
+    upcoming: instRes?.results ?? [],
+    gst: { ...gst, hasBN: !!profile.business_number },
+  };
+}
+
+async function reallocate(db: any, companyId: number, profile: any) {
+  const nowYear = new Date().getUTCFullYear();
+  const schedule = buildInstalmentSchedule(profile.start_date, nowYear + 1);
+  const deposits = await liveDeposits(db, companyId);
+  const alloc = allocateToInstalments(
+    deposits.map((d) => ({
+      received_date: d.received_date,
+      tax_owed: d.tax_owed,
+      cpp_owed: d.cpp_owed,
+      cpp2_owed: d.cpp2_owed,
+      voided: 0,
+    })),
+    schedule
+  );
+  for (const row of schedule) {
+    await db
+      .prepare('INSERT OR IGNORE INTO sole_prop_instalments (company_id, tax_year, due_date, kind) VALUES (?, ?, ?, ?)')
+      .bind(companyId, row.tax_year, row.due_date, row.kind)
+      .run();
+    const a = alloc[row.due_date];
+    await db
+      .prepare('UPDATE sole_prop_instalments SET tax_amount = ?, cpp_amount = ?, cpp2_amount = ?, total_amount = ? WHERE company_id = ? AND due_date = ? AND paid = 0')
+      .bind(a.tax, a.cpp, a.cpp2, a.total, companyId, row.due_date)
+      .run();
+  }
+}
+
+async function fetchCadRate(currency: string, date: string): Promise<{ rate: number; dateUsed: string } | null> {
+  const [y, m, d] = date.split('-').map(Number);
+  for (let back = 0; back < 5; back++) {
+    const ds = new Date(Date.UTC(y, m - 1, d - back)).toISOString().split('T')[0];
+    try {
+      const res = await fetch(`https://api.frankfurter.dev/v1/${ds}?base=${currency}&symbols=CAD`);
+      if (!res.ok) continue;
+      const json = (await res.json()) as any;
+      const rate = json?.rates?.CAD;
+      if (typeof rate === 'number' && rate > 0) return { rate, dateUsed: ds };
+    } catch {
+      // try the previous day
+    }
+  }
+  return null;
+}
+
+function validDate(s: any): boolean {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+// GET /api/soleprop/overview
+router.get('/overview', async (c) => {
+  const companyId = getCompanyId(c);
+  if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+  const ws = await loadWorkspace(c.env.DB, companyId);
+  if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+  return c.json(await buildOverview(c.env.DB, companyId, ws.profile));
+});
+
+// GET /api/soleprop/fx-preview?date=YYYY-MM-DD&currency=USD
+router.get('/fx-preview', async (c) => {
+  const companyId = getCompanyId(c);
+  if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+  const ws = await loadWorkspace(c.env.DB, companyId);
+  if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+  const date = c.req.query('date') ?? '';
+  const currency = (c.req.query('currency') ?? 'USD').toUpperCase();
+  if (!validDate(date)) return c.json({ error: 'Valid date (YYYY-MM-DD) is required' }, 400);
+  if (!FX_CURRENCIES.includes(currency)) {
+    return c.json({ error: `Currency must be one of ${FX_CURRENCIES.join(', ')}` }, 400);
+  }
+  const fx = await fetchCadRate(currency, date);
+  if (!fx) return c.json({ error: 'Exchange rate unavailable. Enter the rate manually.' }, 502);
+  return c.json({ rate: fx.rate, dateUsed: fx.dateUsed, currency });
+});
+
+// POST /api/soleprop/deposits
+router.post('/deposits', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const { profile } = ws;
+
+    const { received_date, foreign_amount, currency: rawCurrency, fx_rate, note } = await c.req.json();
+    if (!validDate(received_date)) return c.json({ error: 'Valid received_date (YYYY-MM-DD) is required' }, 400);
+    const amount = Number(foreign_amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return c.json({ error: 'foreign_amount must be a positive number' }, 400);
+    }
+    const currency = String(rawCurrency ?? 'USD').toUpperCase();
+    if (!FX_CURRENCIES.includes(currency)) {
+      return c.json({ error: `Currency must be one of ${FX_CURRENCIES.join(', ')}` }, 400);
+    }
+
+    let rate = Number(fx_rate);
+    let dateUsed = received_date;
+    if (fx_rate === undefined || fx_rate === null || fx_rate === '') {
+      const fx = await fetchCadRate(currency, received_date);
+      if (!fx) return c.json({ error: 'Exchange rate unavailable. Enter the rate manually.' }, 502);
+      rate = fx.rate;
+      dateUsed = fx.dateUsed;
+    } else if (!Number.isFinite(rate) || rate <= 0) {
+      return c.json({ error: 'fx_rate must be a positive number' }, 400);
+    }
+
+    const cadAmount = round2(amount * rate);
+    const prior = await liveDeposits(c.env.DB, companyId);
+    const priorCad = round2(prior.reduce((s, d) => s + d.cad_amount, 0));
+    const priorTax = round2(prior.reduce((s, d) => s + d.tax_owed, 0));
+    const priorCpp = round2(prior.reduce((s, d) => s + d.cpp_owed, 0));
+    const priorCpp2 = round2(prior.reduce((s, d) => s + d.cpp2_owed, 0));
+
+    const owed = calculateSolePropObligations({
+      cumulativeCad: round2(priorCad + cadAmount),
+      priorTax,
+      priorCpp,
+      priorCpp2,
+      ytdPensionableOpening: profile.ytd_pensionable_opening ?? 0,
+      ytdCppOpening: profile.ytd_cpp_opening ?? 0,
+      ytdCpp2Opening: profile.ytd_cpp2_opening ?? 0,
+      taxYear: Number(received_date.slice(0, 4)),
+    });
+
+    const inserted = await c.env.DB.prepare(`
+      INSERT INTO sole_prop_deposits
+        (company_id, received_date, foreign_amount, currency, fx_rate, fx_date_used, cad_amount, tax_owed, cpp_owed, cpp2_owed, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      companyId, received_date, amount, currency, rate, dateUsed, cadAmount,
+      owed.incomeTax, owed.cpp, owed.cpp2, note ?? null
+    ).run();
+
+    await reallocate(c.env.DB, companyId, profile);
+
+    const deposit = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_deposits WHERE id = ? AND company_id = ?'
+    ).bind(inserted.meta.last_row_id, companyId).first();
+
+    return c.json({ deposit, overview: await buildOverview(c.env.DB, companyId, profile) });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST /api/soleprop/deposits/:id/void
+router.post('/deposits/:id/void', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const id = Number(c.req.param('id'));
+    const deposit = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_deposits WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).first() as any;
+    if (!deposit) return c.json({ error: 'Deposit not found' }, 404);
+    await c.env.DB.prepare(
+      'UPDATE sole_prop_deposits SET voided = 1 WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).run();
+    await reallocate(c.env.DB, companyId, ws.profile);
+    return c.json({ overview: await buildOverview(c.env.DB, companyId, ws.profile) });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST /api/soleprop/instalments/:id/pay
+router.post('/instalments/:id/pay', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const id = Number(c.req.param('id'));
+    const instalment = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_instalments WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).first() as any;
+    if (!instalment) return c.json({ error: 'Instalment not found' }, 404);
+    if (!instalment.paid) {
+      const body = await c.req.json().catch(() => ({}));
+      const paidDate = validDate(body?.paid_date) ? body.paid_date : todayStr();
+      await c.env.DB.prepare(
+        'UPDATE sole_prop_instalments SET paid = 1, paid_date = ? WHERE id = ? AND company_id = ?'
+      ).bind(paidDate, id, companyId).run();
+      await c.env.DB.prepare(`
+        INSERT INTO remittance_payments (company_id, type, payment_date, amount, period_end)
+        VALUES (?, 'INSTALMENT', ?, ?, ?)
+      `).bind(companyId, paidDate, instalment.total_amount, instalment.due_date).run();
+    }
+    const updated = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_instalments WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).first();
+    return c.json({ instalment: updated });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT /api/soleprop/profile
+router.put('/profile', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const { business_number } = await c.req.json();
+    const digits = String(business_number ?? '').replace(/\D/g, '');
+    if (digits.length !== 9) {
+      return c.json({ error: 'Business number must be 9 digits' }, 400);
+    }
+    await c.env.DB.prepare(
+      'UPDATE sole_prop_profile SET business_number = ? WHERE company_id = ?'
+    ).bind(digits, companyId).run();
+    const profile = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_profile WHERE company_id = ?'
+    ).bind(companyId).first();
+    return c.json({ profile });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+export default router;

@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
 import authRouter from './routes/auth';
 import settingsRouter from './routes/settings';
+import solepropRouter from './routes/soleprop';
 import employeesRouter from './routes/employees';
 import payrollRouter from './routes/payroll';
 import reportsRouter from './routes/reports';
@@ -49,6 +50,7 @@ app.use('/api/*', async (c, next) => {
 
 // Routes hookup
 app.route('/api/auth', authRouter);
+app.route('/api/soleprop', solepropRouter);
 app.route('/api/settings', settingsRouter);
 app.route('/api/employees', employeesRouter);
 app.route('/api/payroll-runs', payrollRouter);
