@@ -83,9 +83,15 @@ async function buildOverview(db: any, companyId: number, profile: any) {
 }
 
 async function reallocate(db: any, companyId: number, profile: any) {
-  const nowYear = new Date().getUTCFullYear();
-  const schedule = buildInstalmentSchedule(profile.start_date, nowYear + 1);
   const deposits = await liveDeposits(db, companyId);
+  const nowYear = new Date().getUTCFullYear();
+  const latestDepositYear = deposits.reduce(
+    (m, d) => Math.max(m, Number(String(d.received_date).slice(0, 4))),
+    nowYear
+  );
+  // Only materialize rows for elapsed years: a 2026 start shows just the
+  // annual row until 2027 arrives, instead of all future quarterlies at once.
+  const schedule = buildInstalmentSchedule(profile.start_date, Math.max(nowYear, latestDepositYear));
   const alloc = allocateToInstalments(
     deposits.map((d) => ({
       received_date: d.received_date,
@@ -96,6 +102,7 @@ async function reallocate(db: any, companyId: number, profile: any) {
     })),
     schedule
   );
+  const wanted = new Set(schedule.map((r) => r.due_date));
   for (const row of schedule) {
     await db
       .prepare('INSERT OR IGNORE INTO sole_prop_instalments (company_id, tax_year, due_date, kind) VALUES (?, ?, ?, ?)')
@@ -106,6 +113,20 @@ async function reallocate(db: any, companyId: number, profile: any) {
       .prepare('UPDATE sole_prop_instalments SET tax_amount = ?, cpp_amount = ?, cpp2_amount = ?, total_amount = ? WHERE company_id = ? AND due_date = ? AND paid = 0')
       .bind(a.tax, a.cpp, a.cpp2, a.total, companyId, row.due_date)
       .run();
+  }
+  // Prune unpaid rows from years that have not arrived yet (e.g. rows
+  // created before lazy scheduling existed). Paid rows are never touched.
+  const existing = await db
+    .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ?')
+    .bind(companyId)
+    .all() as any;
+  for (const row of existing?.results ?? []) {
+    if (!row.paid && !wanted.has(row.due_date)) {
+      await db
+        .prepare('DELETE FROM sole_prop_instalments WHERE id = ? AND company_id = ?')
+        .bind(row.id, companyId)
+        .run();
+    }
   }
 }
 

@@ -94,6 +94,10 @@ const mockDb = {
           if (r) { r.paid = 1; r.paid_date = args[0]; }
           return { success: true, meta: {} };
         }
+        if (sql.includes('DELETE FROM sole_prop_instalments')) {
+          state.instalments = state.instalments.filter((x) => !(x.id === args[0] && x.company_id === args[1]));
+          return { success: true, meta: {} };
+        }
         if (sql.includes('INSERT INTO remittance_payments')) {
           state.remittances.push({
             id: ++state.ids.remittance, company_id: args[0], type: 'INSTALMENT',
@@ -265,4 +269,39 @@ describe('soleprop routes', () => {
     expect(state.profile.ytd_cpp_opening).toBe(8460.9);
     expect(state.profile.business_number).toBeNull();
   });
+  it('materializes rows only for elapsed years', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    const currentYear = new Date().getUTCFullYear();
+    expect(json.overview.upcoming.length).toBeGreaterThan(0);
+    for (const row of json.overview.upcoming) {
+      expect(row.tax_year).toBeLessThanOrEqual(currentYear);
+    }
+    expect(json.overview.upcoming.some((r: any) => r.kind === 'annual')).toBe(true);
+  });
+
+  it('prunes stale future rows but keeps paid ones', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    state.instalments.push(
+      { id: 900, company_id: 1, tax_year: 2099, due_date: '2099-03-15', kind: 'quarterly', tax_amount: 0, cpp_amount: 0, cpp2_amount: 0, total_amount: 0, paid: 0, paid_date: null },
+      { id: 901, company_id: 1, tax_year: 2099, due_date: '2099-06-15', kind: 'quarterly', tax_amount: 10, cpp_amount: 0, cpp2_amount: 0, total_amount: 10, paid: 1, paid_date: '2099-06-01' },
+    );
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 1000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    const dueDates = json.overview.upcoming.map((r: any) => r.due_date);
+    expect(dueDates).not.toContain('2099-03-15');
+    expect(dueDates).toContain('2099-06-15');
+  });
+
 });

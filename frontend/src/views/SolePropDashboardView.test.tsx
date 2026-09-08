@@ -37,4 +37,22 @@ describe('SolePropDashboardView', () => {
     await waitFor(() => expect(api.paySolePropInstalment).toHaveBeenCalledWith(1, undefined));
     expect(api.getSolePropOverview).toHaveBeenCalledTimes(2);
   });
+  it('collapses later instalments behind a summary', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      upcoming: [
+        { ...overview.upcoming[0], id: 1, due_date: '2027-03-15', kind: 'quarterly' },
+        { ...overview.upcoming[0], id: 2, due_date: '2027-04-30', kind: 'annual' },
+        { ...overview.upcoming[0], id: 3, due_date: '2027-06-15', kind: 'quarterly' },
+      ],
+    });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    const summary = await screen.findByText(/Later instalments \(2\)/);
+    const details = summary.closest('details');
+    expect(details).not.toBeNull();
+    expect(details?.textContent).toContain('2027-04-30');
+    expect(details?.textContent).toContain('2027-06-15');
+    expect(details?.textContent).not.toContain('2027-03-15');
+  });
+
 });

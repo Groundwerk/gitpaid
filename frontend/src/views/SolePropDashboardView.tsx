@@ -121,6 +121,55 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     }
   };
 
+  const renderInstCard = (inst: { id: number; kind: string; due_date: string; tax_amount: number; cpp_amount: number; cpp2_amount: number; total_amount: number; paid: number; paid_date: string | null }) => {
+    const overdue = isOverdue(inst.due_date, inst.paid);
+    return (
+      <div
+        key={inst.id}
+        className={`p-4 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm ${
+          inst.paid
+            ? 'bg-surface-container border-outline-variant opacity-70'
+            : overdue
+              ? 'bg-rose-50 border-rose-200 text-rose-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+        }`}
+      >
+        <div>
+          <p className="text-sm font-bold">
+            {inst.kind === 'annual' ? 'Annual balance' : 'Quarterly instalment'} — due {inst.due_date}
+            {inst.kind === 'annual' && !inst.paid && (
+              <span className="block text-xs font-medium mt-0.5">No quarterly payments required yet — due April 30.</span>
+            )}
+          </p>
+          <p className="text-xs mt-1">
+            Tax {formatCurrency(inst.tax_amount)} · CPP {formatCurrency(inst.cpp_amount)} · CPP2 {formatCurrency(inst.cpp2_amount)} ·
+            Total {formatCurrency(inst.total_amount)}
+          </p>
+          {inst.paid && inst.paid_date && (
+            <p className="text-xs mt-1">Paid {inst.paid_date}</p>
+          )}
+        </div>
+        {!inst.paid && (
+          <button
+            type="button" onClick={() => handlePay(inst.id)}
+            className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity whitespace-nowrap self-start md:self-center"
+          >
+            Mark paid
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const sortedUpcoming = [...(overview?.upcoming ?? [])].sort((a, b) =>
+    a.due_date < b.due_date ? -1 : 1
+  );
+  const unpaidSorted = sortedUpcoming.filter(i => !i.paid);
+  const overdueRows = unpaidSorted.filter(i => isOverdue(i.due_date, i.paid));
+  const nextRow = unpaidSorted.find(i => !isOverdue(i.due_date, i.paid)) ?? null;
+  const laterRows = nextRow ? unpaidSorted.filter(i => i.id !== nextRow.id && !isOverdue(i.due_date, i.paid)) : [];
+  const paidRows = sortedUpcoming.filter(i => i.paid);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -310,45 +359,34 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">
         <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2 mb-4">Instalments</h2>
         <div className="flex flex-col gap-3">
-          {overview.upcoming.map(inst => {
-            const overdue = isOverdue(inst.due_date, inst.paid);
-            return (
-              <div
-                key={inst.id}
-                className={`p-4 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm ${
-                  inst.paid
-                    ? 'bg-surface-container border-outline-variant opacity-70'
-                    : overdue
-                      ? 'bg-rose-50 border-rose-200 text-rose-900'
-                      : 'bg-amber-50 border-amber-200 text-amber-900'
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-bold">
-                    {inst.kind === 'annual' ? 'Annual balance' : 'Quarterly instalment'} — due {inst.due_date}
-                    {inst.kind === 'annual' && !inst.paid && (
-                      <span className="block text-xs font-medium mt-0.5">No quarterly payments required yet — due April 30.</span>
-                    )}
-                  </p>
-                  <p className="text-xs mt-1">
-                    Tax {formatCurrency(inst.tax_amount)} · CPP {formatCurrency(inst.cpp_amount)} · CPP2 {formatCurrency(inst.cpp2_amount)} ·
-                    Total {formatCurrency(inst.total_amount)}
-                  </p>
-                  {inst.paid && inst.paid_date && (
-                    <p className="text-xs mt-1">Paid {inst.paid_date}</p>
-                  )}
-                </div>
-                {!inst.paid && (
-                  <button
-                    type="button" onClick={() => handlePay(inst.id)}
-                    className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity whitespace-nowrap self-start md:self-center"
-                  >
-                    Mark paid
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {unpaidSorted.length === 0 && paidRows.length === 0 && (
+            <p className="text-sm text-on-surface-variant">No instalments yet — record a deposit to start the estimate.</p>
+          )}
+          {overdueRows.map(renderInstCard)}
+          {nextRow && (
+            <>
+              {overdueRows.length > 0 && (
+                <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">Next due</p>
+              )}
+              {renderInstCard(nextRow)}
+            </>
+          )}
+          {laterRows.length > 0 && (
+            <details className="border border-outline-variant rounded-xl">
+              <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                Later instalments ({laterRows.length})
+              </summary>
+              <div className="flex flex-col gap-3 px-4 pb-4">{laterRows.map(renderInstCard)}</div>
+            </details>
+          )}
+          {paidRows.length > 0 && (
+            <details className="border border-outline-variant rounded-xl">
+              <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                Paid ({paidRows.length})
+              </summary>
+              <div className="flex flex-col gap-3 px-4 pb-4">{paidRows.map(renderInstCard)}</div>
+            </details>
+          )}
         </div>
       </div>
     </div>
