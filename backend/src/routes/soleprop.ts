@@ -239,8 +239,39 @@ export class DepositError extends Error {
   }
 }
 
-// Shared by manual entry and Wise sync: resolves FX, computes obligations
-// incrementally, stores the deposit, and reallocates instalments.
+// Replays every live deposit in chronological order, recomputing each
+// row's incremental shares from scratch. Required after ANY mutation
+// (create, import, void): incremental shares are order-dependent, so
+// voiding or backdating without a replay leaves stale deltas behind.
+export async function recomputeDeposits(db: any, companyId: number, profile: any) {
+  const rows = await liveDeposits(db, companyId);
+  let priorCad = 0;
+  let priorTax = 0;
+  let priorCpp = 0;
+  let priorCpp2 = 0;
+  for (const d of rows) {
+    const owed = calculateSolePropObligations({
+      cumulativeCad: round2(priorCad + d.cad_amount),
+      priorTax,
+      priorCpp,
+      priorCpp2,
+      ytdPensionableOpening: profile.ytd_pensionable_opening ?? 0,
+      ytdCppOpening: profile.ytd_cpp_opening ?? 0,
+      ytdCpp2Opening: profile.ytd_cpp2_opening ?? 0,
+      taxYear: Number(String(d.received_date).slice(0, 4)),
+    });
+    await db.prepare(
+      'UPDATE sole_prop_deposits SET tax_owed = ?, cpp_owed = ?, cpp2_owed = ? WHERE id = ? AND company_id = ?'
+    ).bind(owed.incomeTax, owed.cpp, owed.cpp2, d.id, companyId).run();
+    priorCad = round2(priorCad + d.cad_amount);
+    priorTax = round2(priorTax + owed.incomeTax);
+    priorCpp = round2(priorCpp + owed.cpp);
+    priorCpp2 = round2(priorCpp2 + owed.cpp2);
+  }
+}
+
+// Shared by manual entry and Wise sync: resolves FX, stores the deposit,
+// then replays all shares and reallocates for order-independent math.
 export async function recordDeposit(db: any, companyId: number, profile: any, input: DepositInput) {
   const { received_date, foreign_amount, currency } = input;
   const amount = Number(foreign_amount);
@@ -261,32 +292,16 @@ export async function recordDeposit(db: any, companyId: number, profile: any, in
   }
 
   const cadAmount = round2(amount * rate);
-  const prior = await liveDeposits(db, companyId);
-  const priorCad = round2(prior.reduce((s, d) => s + d.cad_amount, 0));
-  const priorTax = round2(prior.reduce((s, d) => s + d.tax_owed, 0));
-  const priorCpp = round2(prior.reduce((s, d) => s + d.cpp_owed, 0));
-  const priorCpp2 = round2(prior.reduce((s, d) => s + d.cpp2_owed, 0));
-
-  const owed = calculateSolePropObligations({
-    cumulativeCad: round2(priorCad + cadAmount),
-    priorTax,
-    priorCpp,
-    priorCpp2,
-    ytdPensionableOpening: profile.ytd_pensionable_opening ?? 0,
-    ytdCppOpening: profile.ytd_cpp_opening ?? 0,
-    ytdCpp2Opening: profile.ytd_cpp2_opening ?? 0,
-    taxYear: Number(received_date.slice(0, 4)),
-  });
-
   const inserted = await db.prepare(`
     INSERT INTO sole_prop_deposits
       (company_id, received_date, foreign_amount, currency, fx_rate, fx_date_used, cad_amount, tax_owed, cpp_owed, cpp2_owed, note, wise_transfer_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
   `).bind(
     companyId, received_date, amount, currency, rate, dateUsed, cadAmount,
-    owed.incomeTax, owed.cpp, owed.cpp2, input.note ?? null, input.wiseKey ?? null
+    input.note ?? null, input.wiseKey ?? null
   ).run();
 
+  await recomputeDeposits(db, companyId, profile);
   await reallocate(db, companyId, profile);
 
   return db.prepare(
@@ -339,6 +354,7 @@ router.post('/deposits/:id/void', async (c) => {
     await c.env.DB.prepare(
       'UPDATE sole_prop_deposits SET voided = 1 WHERE id = ? AND company_id = ?'
     ).bind(id, companyId).run();
+    await recomputeDeposits(c.env.DB, companyId, ws.profile);
     await reallocate(c.env.DB, companyId, ws.profile);
     return c.json({ overview: await buildOverview(c.env.DB, companyId, ws.profile) });
   } catch (error: any) {

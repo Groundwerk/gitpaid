@@ -69,8 +69,8 @@ const mockDb = {
           state.deposits.push({
             id, company_id: args[0], received_date: args[1], foreign_amount: args[2],
             currency: args[3], fx_rate: args[4], fx_date_used: args[5], cad_amount: args[6],
-            tax_owed: args[7], cpp_owed: args[8], cpp2_owed: args[9], note: args[10] ?? null,
-            wise_transfer_id: args[11] ?? null, voided: 0,
+            tax_owed: 0, cpp_owed: 0, cpp2_owed: 0, note: args[7] ?? null,
+            wise_transfer_id: args[8] ?? null, voided: 0,
           });
           return { success: true, meta: { last_row_id: id } };
         }
@@ -96,6 +96,16 @@ const mockDb = {
             r.tax_amount = args[0]; r.cpp_amount = args[1];
             r.cpp2_amount = args[2]; r.total_amount = args[3];
           }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET voided = 1')) {
+          const d = state.deposits.find((x) => x.id === args[0] && x.company_id === args[1]);
+          if (d) d.voided = 1;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET tax_owed')) {
+          const d = state.deposits.find((x) => x.id === args[3] && x.company_id === args[4]);
+          if (d) { d.tax_owed = args[0]; d.cpp_owed = args[1]; d.cpp2_owed = args[2]; }
           return { success: true, meta: {} };
         }
         if (sql.includes('SET paid = 1')) {
@@ -251,6 +261,30 @@ describe('soleprop routes', () => {
     const annual = json.overview.upcoming.find((r: any) => r.due_date === '2027-04-30');
     expect(annual.total_amount).toBe(404.6);
   });
+  it('replays surviving shares when the first deposit is voided', async () => {
+    const headers = await authHeaders();
+    const first = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const firstId = ((await first.json()) as any).deposit.id;
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 10000, currency: 'USD' }),
+    }, testEnv);
+    await app.request(`/api/soleprop/deposits/${firstId}/void`, { method: 'POST', headers }, testEnv);
+    const res = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const json = await res.json() as any;
+    // Survivor recomputed standalone on 13800 CAD: federal below BPA;
+    // Ontario (13800-12989)=811 x5.05% = 40.96;
+    // CPP (13800-3500)=10300 x11.9% = 1225.70
+    const survivor = json.deposits.find((d: any) => !d.voided);
+    expect(survivor.tax_owed).toBe(40.96);
+    expect(survivor.cpp_owed).toBe(1225.7);
+    expect(json.totals.tax).toBe(40.96);
+    expect(json.totals.cpp).toBe(1225.7);
+  });
+
 
   it('pay marks instalment and mirrors remittance_payments', async () => {
     const headers = await authHeaders();
