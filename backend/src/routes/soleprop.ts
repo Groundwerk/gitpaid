@@ -12,7 +12,11 @@ const router = new Hono<{
   };
 }>();
 
-const FX_CURRENCIES = ['USD', 'EUR', 'GBP'];
+const FX_CURRENCIES = [
+  'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD',
+  'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK',
+  'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'TRY', 'USD', 'ZAR',
+];
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -175,6 +179,7 @@ router.get('/fx-preview', async (c) => {
   if (!FX_CURRENCIES.includes(currency)) {
     return c.json({ error: `Currency must be one of ${FX_CURRENCIES.join(', ')}` }, 400);
   }
+  if (currency === 'CAD') return c.json({ rate: 1, dateUsed: date, currency });
   const fx = await fetchCadRate(currency, date);
   if (!fx) return c.json({ error: 'Exchange rate unavailable. Enter the rate manually.' }, 502);
   return c.json({ rate: fx.rate, dateUsed: fx.dateUsed, currency });
@@ -202,7 +207,9 @@ router.post('/deposits', async (c) => {
 
     let rate = Number(fx_rate);
     let dateUsed = received_date;
-    if (fx_rate === undefined || fx_rate === null || fx_rate === '') {
+    if (currency === 'CAD' && (fx_rate === undefined || fx_rate === null || fx_rate === '')) {
+      rate = 1;
+    } else if (fx_rate === undefined || fx_rate === null || fx_rate === '') {
       const fx = await fetchCadRate(currency, received_date);
       if (!fx) return c.json({ error: 'Exchange rate unavailable. Enter the rate manually.' }, 502);
       rate = fx.rate;

@@ -269,9 +269,9 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
               onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value, fx_rate: '' }))}
               className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
+              {['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'TRY', 'USD', 'ZAR'].map(code => (
+                <option key={code} value={code}>{code}</option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">

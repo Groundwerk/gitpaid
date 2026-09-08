@@ -304,4 +304,40 @@ describe('soleprop routes', () => {
     expect(dueDates).toContain('2099-06-15');
   });
 
+  it('records CAD deposits at par without fetching FX', async () => {
+    let fetched = 0;
+    vi.stubGlobal('fetch', async () => { fetched += 1; return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any; });
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.fx_rate).toBe(1);
+    expect(json.deposit.cad_amount).toBe(1000);
+    expect(fetched).toBe(0);
+  });
+
+  it('accepts other frankfurter currencies', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 100000, currency: 'JPY' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.currency).toBe('JPY');
+    expect(json.deposit.cad_amount).toBe(138000);
+  });
+
+  it('rejects unsupported currencies', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 100, currency: 'XX' }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+  });
+
 });
