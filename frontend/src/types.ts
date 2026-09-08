@@ -26,6 +26,59 @@ export interface CompanySettings {
   logo_url?: string | null;
   brand_color?: string | null;
   use_company_branding?: number; // 0 | 1
+  account_type?: string; // 'company' | 'sole_prop'
+  sole_prop_start_date?: string;
+  sole_prop_business_number?: string | null;
+  sole_prop_ytd_pensionable?: number;
+  sole_prop_ytd_cpp?: number;
+  sole_prop_ytd_cpp2?: number;
+}
+
+export interface SolePropProfile {
+  id: number;
+  company_id: number;
+  business_number: string | null;
+  start_date: string;
+  province: string;
+  ytd_pensionable_opening: number;
+  ytd_cpp_opening: number;
+  ytd_cpp2_opening: number;
+  instalment_mode: string;
+}
+
+export interface SolePropDeposit {
+  id: number;
+  received_date: string;
+  foreign_amount: number;
+  currency: string;
+  fx_rate: number;
+  fx_date_used: string;
+  cad_amount: number;
+  tax_owed: number;
+  cpp_owed: number;
+  cpp2_owed: number;
+  note: string | null;
+  voided: number;
+}
+
+export interface SolePropInstalment {
+  id: number;
+  tax_year: number;
+  due_date: string;
+  kind: 'annual' | 'quarterly';
+  tax_amount: number;
+  cpp_amount: number;
+  cpp2_amount: number;
+  total_amount: number;
+  paid: number;
+  paid_date: string | null;
+}
+
+export interface SolePropOverview {
+  profile: SolePropProfile;
+  totals: { cad: number; tax: number; cpp: number; cpp2: number };
+  upcoming: SolePropInstalment[];
+  gst: { rollingTotal: number; crossed: boolean; crossingDate: string | null; deadline: string | null; hasBN: boolean };
 }
 
 export interface Employee {

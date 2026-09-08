@@ -1,4 +1,4 @@
-import type { CompanySettings, Employee, PayrollRun } from '../types';
+import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropInstalment, SolePropOverview, SolePropProfile } from '../types';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -47,7 +47,7 @@ export const api = {
 
   // Settings
   getSettings: () => request<CompanySettings>('/settings'),
-  updateSettings: (settings: Partial<CompanySettings>) => 
+  updateSettings: <T extends Partial<CompanySettings>>(settings: T) => 
     request<CompanySettings>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
 
   // Employees
@@ -220,6 +220,21 @@ export const api = {
   createRemittancePayment: (data: { type: string; payment_date: string; amount: number; period_end: string }) =>
     request<{ id: number; message: string }>('/reports/remittances', { method: 'POST', body: JSON.stringify(data) }),
   deleteRemittancePayment: (id: number) =>
-    request<{ message: string }>(`/reports/remittances/${id}`, { method: 'DELETE' })
+    request<{ message: string }>(`/reports/remittances/${id}`, { method: 'DELETE' }),
+
+  // Sole proprietor
+  getSolePropOverview: () => request<SolePropOverview>('/soleprop/overview'),
+  previewFx: (date: string, currency: string) =>
+    request<{ rate: number; dateUsed: string; currency: string }>(
+      `/soleprop/fx-preview?date=${encodeURIComponent(date)}&currency=${encodeURIComponent(currency)}`
+    ),
+  createSolePropDeposit: (deposit: { received_date: string; foreign_amount: number; currency?: string; fx_rate?: number; note?: string }) =>
+    request<{ deposit: SolePropDeposit; overview: SolePropOverview }>('/soleprop/deposits', { method: 'POST', body: JSON.stringify(deposit) }),
+  voidSolePropDeposit: (id: number) =>
+    request<{ overview: SolePropOverview }>(`/soleprop/deposits/${id}/void`, { method: 'POST' }),
+  paySolePropInstalment: (id: number, paid_date?: string) =>
+    request<{ instalment: SolePropInstalment }>(`/soleprop/instalments/${id}/pay`, { method: 'POST', body: JSON.stringify({ paid_date }) }),
+  updateSolePropProfile: (profile: { business_number: string }) =>
+    request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) })
 };
 export default api;
