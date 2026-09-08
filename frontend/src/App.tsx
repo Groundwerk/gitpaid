@@ -10,6 +10,7 @@ import SettingsView from './views/SettingsView';
 import LoginView from './views/LoginView';
 import OnboardingView from './views/OnboardingView';
 import SolePropDashboardView from './views/SolePropDashboardView';
+import SolePropReportsView from './views/SolePropReportsView';
 import { api } from './utils/api';
 
 interface Toast {
@@ -199,8 +200,8 @@ export const App: React.FC = () => {
   const getPageTitle = () => {
     if (isOnboardingNew) return 'Onboard New Employee';
     if (editingEmployeeId !== null) return 'Edit Employee Profile';
-    
     if (accountType === 'sole_prop' && activeTab === 'dashboard') return 'Sole Proprietor';
+    if (accountType === 'sole_prop' && activeTab === 'reports') return 'Earnings Report';
     switch (activeTab) {
       case 'dashboard': return 'Dashboard';
       case 'employees': return 'Employee Directory';
@@ -232,8 +233,11 @@ export const App: React.FC = () => {
         />
       );
     }
-    if (accountType === 'sole_prop' && (activeTab === 'dashboard' || activeTab === 'employees' || activeTab === 'run-payroll' || activeTab === 'reports')) {
+    if (accountType === 'sole_prop' && (activeTab === 'dashboard' || activeTab === 'employees' || activeTab === 'run-payroll')) {
       return <SolePropDashboardView triggerToast={triggerToast} />;
+    }
+    if (accountType === 'sole_prop' && activeTab === 'reports') {
+      return <SolePropReportsView triggerToast={triggerToast} />;
     }
     switch (activeTab) {
       case 'dashboard':
@@ -385,6 +389,7 @@ export const App: React.FC = () => {
           title={getPageTitle()}
           onMenuClick={() => setMobileSidebarOpen(true)}
           onNewEmployeeClick={accountType === 'sole_prop' ? () => {} : () => setIsOnboardingNew(true)}
+          accountType={accountType}
           activeTab={activeTab}
           setActiveTab={navigateToTab}
           companyName={companyName}

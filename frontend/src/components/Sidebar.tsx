@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = accountType === 'sole_prop'
     ? [
         { id: 'dashboard', label: 'Ledger', icon: 'account_balance' },
-        { id: 'settings', label: 'Settings', icon: 'settings' },
+        { id: 'reports', label: 'Earnings Report', icon: 'description' },
       ]
     : [
         { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
