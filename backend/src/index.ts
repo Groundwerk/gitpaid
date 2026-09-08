@@ -80,3 +80,13 @@ app.get('*', async (c) => {
 });
 
 export default app;
+
+// Daily Wise auto-sync cron (see [triggers] in wrangler.toml). Attached to
+// the Hono instance so existing `import app from './index'` test imports
+// keep working; the Workers runtime reads fetch + scheduled off it.
+import { runWiseAutoSync } from './routes/soleprop';
+Object.assign(app, {
+  scheduled(event: any, env: any, ctx: any) {
+    ctx.waitUntil(runWiseAutoSync(env));
+  },
+});

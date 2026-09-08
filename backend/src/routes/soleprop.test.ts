@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { sign } from 'hono/jwt';
+import { encryptText } from '../utils/crypto';
 import app from '../index';
 
 const SECRET = 'test-secret-12345';
@@ -43,6 +44,12 @@ const mockDb = {
         if (sql.includes('FROM sole_prop_instalments')) {
           return { results: state.instalments.filter((r) => r.company_id === args[0]) };
         }
+        if (sql.includes('JOIN wise_tokens')) {
+          const rows = state.wiseToken && state.wiseToken.auto_sync === 1 && state.wiseToken.employer_key
+            ? [{ company_id: 1, ...state.wiseToken }]
+            : [];
+          return { results: rows };
+        }
         return { results: [] };
       },
       run: async () => {
@@ -63,7 +70,7 @@ const mockDb = {
             id, company_id: args[0], received_date: args[1], foreign_amount: args[2],
             currency: args[3], fx_rate: args[4], fx_date_used: args[5], cad_amount: args[6],
             tax_owed: args[7], cpp_owed: args[8], cpp2_owed: args[9], note: args[10] ?? null,
-            voided: 0,
+            wise_transfer_id: args[11] ?? null, voided: 0,
           });
           return { success: true, meta: { last_row_id: id } };
         }
@@ -109,6 +116,20 @@ const mockDb = {
         }
         if (sql.includes('DELETE FROM wise_tokens')) {
           state.wiseToken = null;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET employer_key')) {
+          if (state.wiseToken) {
+            state.wiseToken.employer_key = args[0];
+            state.wiseToken.employer_label = args[1];
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET auto_sync')) {
+          if (state.wiseToken) {
+            state.wiseToken.auto_sync = args[0];
+            state.wiseToken.last_sync_at = args[1];
+          }
           return { success: true, meta: {} };
         }
         if (sql.includes('INSERT INTO remittance_payments')) {
@@ -418,6 +439,105 @@ describe('soleprop routes', () => {
     const del = await app.request('/api/soleprop/wise/token', { method: 'DELETE', headers }, testEnv);
     expect(del.status).toBe(200);
     expect(state.wiseToken).toBeNull();
+  });
+
+  it('previews incoming Wise credits with import flags', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
+          { type: 'CREDIT', date: '2026-09-06T10:00:00.000Z', amount: { value: 50, currency: 'USD' }, details: { description: 'Coffee refund' }, referenceNumber: 'PAY-2' },
+          { type: 'DEBIT', date: '2026-09-07T10:00:00.000Z', amount: { value: 10, currency: 'USD' }, details: {}, referenceNumber: 'PAY-3' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    // Seed a connected token directly (validated-save path is covered above)
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const res = await app.request('/api/soleprop/wise/preview?days=30', { headers: await authHeaders() }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.candidates).toHaveLength(2);
+    expect(json.candidates[0]).toMatchObject({ key: 'wise:PAY-1', senderKey: 'deel inc', alreadyImported: false });
+    expect(json.employer).toBeNull();
+    expect(json.autoSync).toBe(false);
+  });
+
+  it('imports selected credits once and records the employer', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const headers = await authHeaders();
+    const first = await app.request('/api/soleprop/wise/import', {
+      method: 'POST', headers,
+      body: JSON.stringify({ keys: ['wise:PAY-1'], employerKey: 'deel inc', employerLabel: 'Deel Inc' }),
+    }, testEnv);
+    expect(first.status).toBe(200);
+    const firstJson = await first.json() as any;
+    expect(firstJson.imported).toBe(1);
+    expect(state.wiseToken.employer_key).toBe('deel inc');
+    // Re-import is a no-op thanks to the wise key dedup
+    const second = await app.request('/api/soleprop/wise/import', {
+      method: 'POST', headers,
+      body: JSON.stringify({ keys: ['wise:PAY-1'] }),
+    }, testEnv);
+    expect(((await second.json()) as any).imported).toBe(0);
+  });
+
+  it('refuses auto-sync without an employer and runs it once set', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-9' },
+          { type: 'CREDIT', date: '2026-09-06T10:00:00.000Z', amount: { value: 50, currency: 'USD' }, details: { description: 'Coffee refund' }, referenceNumber: 'PAY-8' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const headers = await authHeaders();
+    const refused = await app.request('/api/soleprop/wise/auto-sync', {
+      method: 'PUT', headers, body: JSON.stringify({ enabled: true }),
+    }, testEnv);
+    expect(refused.status).toBe(400);
+    state.wiseToken.employer_key = 'deel inc';
+    const allowed = await app.request('/api/soleprop/wise/auto-sync', {
+      method: 'PUT', headers, body: JSON.stringify({ enabled: true }),
+    }, testEnv);
+    expect(allowed.status).toBe(200);
+    expect(state.wiseToken.auto_sync).toBe(1);
+    const run = await app.request('/api/soleprop/wise/run-now', { method: 'POST', headers }, testEnv);
+    const runJson = await run.json() as any;
+    expect(runJson.imported).toBe(1);
+    expect(state.deposits.filter((d: any) => d.wise_transfer_id === 'wise:PAY-9')).toHaveLength(1);
+    expect(state.deposits.some((d: any) => d.wise_transfer_id === 'wise:PAY-8')).toBe(false);
   });
 
 });

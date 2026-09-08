@@ -4,6 +4,11 @@ compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 workers_dev = true
 
+# Daily Wise auto-sync: 12:00 UTC (~8am EDT). Only workspaces with
+# auto-sync enabled and an employer selected are touched.
+[triggers]
+crons = ["0 12 * * *"]
+
 [vars]
 
 # Serve the frontend SPA from the worker (optional for local dev)

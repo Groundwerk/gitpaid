@@ -23,6 +23,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     try {
       const data = await api.getSolePropOverview();
       setOverview(data);
+      refreshWiseStatus();
     } catch (error: any) {
       console.error('Failed to load sole-prop overview:', error);
       triggerToast(error.message || 'Failed to load ledger.', 'error');
@@ -102,6 +103,91 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
       await load();
     } catch (error: any) {
       triggerToast(error.message || 'Failed to mark paid.', 'error');
+    }
+  };
+
+  interface WiseCandidate {
+    key: string; date: string; amount: number; currency: string;
+    sender: string; senderKey: string; reference: string; alreadyImported: boolean;
+  }
+  const [wiseConnected, setWiseConnected] = useState<boolean | null>(null);
+  const [wisePreview, setWisePreview] = useState<{ employer: { key: string; label: string } | null; autoSync: boolean; candidates: WiseCandidate[] } | null>(null);
+  const [wiseSelected, setWiseSelected] = useState<string[]>([]);
+  const [wiseEmployerPick, setWiseEmployerPick] = useState('');
+  const [wiseBusy, setWiseBusy] = useState(false);
+
+  const refreshWiseStatus = async () => {
+    try {
+      const status = await api.getWiseStatus();
+      setWiseConnected(status.connected);
+    } catch {
+      setWiseConnected(false);
+    }
+  };
+
+  const handleSyncPreview = async () => {
+    try {
+      setWiseBusy(true);
+      const preview = await api.getWisePreview(90, 'USD');
+      setWisePreview(preview);
+      setWiseSelected([]);
+      setWiseEmployerPick(preview.employer?.key ?? '');
+      if (preview.candidates.length === 0) triggerToast('No incoming Wise transfers in the last 90 days.', 'success');
+    } catch (error: any) {
+      triggerToast(error.message || 'Wise sync failed.', 'error');
+    } finally {
+      setWiseBusy(false);
+    }
+  };
+
+  const handleImportSelected = async () => {
+    if (wiseSelected.length === 0) {
+      triggerToast('Select at least one transfer to import.', 'error');
+      return;
+    }
+    try {
+      setWiseBusy(true);
+      const picked = wisePreview?.candidates.find(c => c.senderKey === wiseEmployerPick);
+      const res = await api.importWiseTransfers({
+        keys: wiseSelected,
+        employerKey: wiseEmployerPick || undefined,
+        employerLabel: picked?.sender,
+      });
+      setOverview(res.overview);
+      triggerToast(`Imported ${res.imported} deposit${res.imported === 1 ? '' : 's'}.`, 'success');
+      await handleSyncPreview();
+    } catch (error: any) {
+      triggerToast(error.message || 'Import failed.', 'error');
+    } finally {
+      setWiseBusy(false);
+    }
+  };
+
+  const handleAutoSyncToggle = async () => {
+    const next = !(wisePreview?.autoSync ?? false);
+    try {
+      setWiseBusy(true);
+      await api.setWiseAutoSync(next);
+      triggerToast(next ? 'Daily auto-sync enabled.' : 'Auto-sync disabled.', 'success');
+      await handleSyncPreview();
+    } catch (error: any) {
+      triggerToast(error.message || 'Failed to update auto-sync.', 'error');
+    } finally {
+      setWiseBusy(false);
+    }
+  };
+
+  const handleRunNow = async () => {
+    try {
+      setWiseBusy(true);
+      const res = await api.runWiseSyncNow();
+      setOverview(res.overview);
+      triggerToast(res.imported === 0 ? 'No new employer transfers.' : `Imported ${res.imported} deposit${res.imported === 1 ? '' : 's'}.`, 'success');
+      await handleSyncPreview();
+    } catch (error: any) {
+      triggerToast(error.message || 'Sync failed.', 'error');
+    } finally {
+      setWiseBusy(false);
     }
   };
 
@@ -238,6 +324,108 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(card.value)}</p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2 mb-4">Wise sync</h2>
+        {wiseConnected === false && (
+          <p className="text-sm text-on-surface-variant">Connect Wise in Settings to import deposits automatically.</p>
+        )}
+        {wiseConnected === true && !wisePreview && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-on-surface-variant">Pull the last 90 days of incoming Wise transfers and pick what to import.</p>
+            <div>
+              <button
+                type="button" onClick={handleSyncPreview} disabled={wiseBusy}
+                className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                Sync from Wise
+              </button>
+            </div>
+          </div>
+        )}
+        {wiseConnected === true && wisePreview && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button" onClick={handleSyncPreview} disabled={wiseBusy}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant hover:border-highlight transition-colors disabled:opacity-50"
+              >
+                Refresh list
+              </button>
+              <button
+                type="button" onClick={handleRunNow} disabled={wiseBusy || !wisePreview.employer}
+                title={wisePreview.employer ? 'Import new transfers from your employer now' : 'Pick your employer below first'}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant hover:border-highlight transition-colors disabled:opacity-50"
+              >
+                Sync now
+              </button>
+              <label className="flex items-center gap-2 text-sm text-on-surface-variant ml-auto">
+                <input
+                  type="checkbox" checked={wisePreview.autoSync} disabled={wiseBusy || !wisePreview.employer}
+                  onChange={handleAutoSyncToggle}
+                  className="h-4 w-4"
+                />
+                Auto-sync daily
+              </label>
+            </div>
+            {!wisePreview.employer && (
+              <p className="text-xs text-on-surface-variant">Pick which sender is your pay below — auto-sync only imports from them.</p>
+            )}
+            {wisePreview.candidates.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No incoming transfers in the last 90 days.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-on-surface-variant border-b border-outline-variant">
+                      <th className="py-2 pr-3"><span className="sr-only">Import</span></th>
+                      <th className="py-2 pr-3">Date</th>
+                      <th className="py-2 pr-3">Sender</th>
+                      <th className="py-2 pr-3">Amount</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Employer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wisePreview.candidates.map(c => (
+                      <tr key={c.key} className="border-b border-outline-variant last:border-0">
+                        <td className="py-2 pr-3">
+                          <input
+                            type="checkbox" aria-label={`Import ${c.sender} ${c.date}`}
+                            checked={wiseSelected.includes(c.key)} disabled={c.alreadyImported}
+                            onChange={(e) => setWiseSelected(prev => e.target.checked ? [...prev, c.key] : prev.filter(k => k !== c.key))}
+                            className="h-4 w-4"
+                          />
+                        </td>
+                        <td className="py-2 pr-3 whitespace-nowrap">{c.date}</td>
+                        <td className="py-2 pr-3">{c.sender}</td>
+                        <td className="py-2 pr-3 whitespace-nowrap">{c.amount.toLocaleString('en-CA')} {c.currency}</td>
+                        <td className="py-2 pr-3 text-on-surface-variant">{c.alreadyImported ? 'Imported' : 'New'}</td>
+                        <td className="py-2 pr-3">
+                          <input
+                            type="radio" name="wise-employer" aria-label={`Mark ${c.sender} as employer`}
+                            checked={wiseEmployerPick === c.senderKey}
+                            onChange={() => setWiseEmployerPick(c.senderKey)}
+                            className="h-4 w-4"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div>
+              <button
+                type="button" onClick={handleImportSelected} disabled={wiseBusy || wiseSelected.length === 0}
+                className="h-10 px-6 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                Import selected
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">

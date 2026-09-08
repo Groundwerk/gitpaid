@@ -10,6 +10,11 @@ vi.mock('../utils/api', () => ({ api: {
   voidSolePropDeposit: vi.fn(),
   paySolePropInstalment: vi.fn(),
   updateSolePropProfile: vi.fn(),
+  getWiseStatus: vi.fn(),
+  getWisePreview: vi.fn(),
+  importWiseTransfers: vi.fn(),
+  setWiseAutoSync: vi.fn(),
+  runWiseSyncNow: vi.fn(),
 } }));
 
 const overview: any = {
@@ -22,7 +27,11 @@ const overview: any = {
 };
 
 describe('SolePropDashboardView', () => {
-  beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.getSolePropOverview).mockResolvedValue(overview); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
+  });
 
   it('shows the blocking GST banner until a BN is saved', async () => {
     render(<SolePropDashboardView triggerToast={() => {}} />);
@@ -53,6 +62,46 @@ describe('SolePropDashboardView', () => {
     expect(details?.textContent).toContain('2027-04-30');
     expect(details?.textContent).toContain('2027-06-15');
     expect(details?.textContent).not.toContain('2027-03-15');
+  });
+
+  it('prompts to connect Wise when no token is saved', async () => {
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    expect(await screen.findByText(/Connect Wise in Settings/i)).toBeInTheDocument();
+  });
+
+  it('lists preview candidates and imports the selection with an employer', async () => {
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
+    const preview = {
+      employer: null,
+      autoSync: false,
+      candidates: [
+        { key: 'wise:PAY-1', date: '2026-09-05', amount: 1000, currency: 'USD', sender: 'Deel Inc', senderKey: 'deel inc', reference: 'PAY-1', alreadyImported: false },
+        { key: 'wise:PAY-2', date: '2026-09-06', amount: 50, currency: 'USD', sender: 'Coffee refund', senderKey: 'coffee refund', reference: 'PAY-2', alreadyImported: true },
+      ],
+    };
+    vi.mocked(api.getWisePreview).mockResolvedValue(preview);
+    vi.mocked(api.importWiseTransfers).mockResolvedValue({ imported: 1, overview });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /sync from wise/i }));
+    await waitFor(() => expect(api.getWisePreview).toHaveBeenCalled());
+    expect(await screen.findByText('Deel Inc')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Import Deel Inc 2026-09-05/));
+    fireEvent.click(screen.getByLabelText(/Mark Deel Inc as employer/));
+    fireEvent.click(screen.getByRole('button', { name: /import selected/i }));
+    await waitFor(() => expect(api.importWiseTransfers).toHaveBeenCalledWith({
+      keys: ['wise:PAY-1'], employerKey: 'deel inc', employerLabel: 'Deel Inc',
+    }));
+  });
+
+  it('toggles daily auto-sync once an employer exists', async () => {
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
+    vi.mocked(api.getWisePreview).mockResolvedValue({
+      employer: { key: 'deel inc', label: 'Deel Inc' }, autoSync: false, candidates: [],
+    });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /sync from wise/i }));
+    fireEvent.click(await screen.findByLabelText(/auto-sync daily/i));
+    await waitFor(() => expect(api.setWiseAutoSync).toHaveBeenCalledWith(true));
   });
 
 });

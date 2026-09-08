@@ -70,6 +70,14 @@ export const api = {
     request<{ ok: boolean; profiles: number }>('/soleprop/wise/test', { method: 'POST' }),
   deleteWiseToken: () =>
     request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'DELETE' }),
+  getWisePreview: (days = 90, currency = 'USD') =>
+    request<{ employer: { key: string; label: string } | null; autoSync: boolean; candidates: { key: string; date: string; amount: number; currency: string; sender: string; senderKey: string; reference: string; alreadyImported: boolean }[] }>(`/soleprop/wise/preview?days=${days}&currency=${currency}`),
+  importWiseTransfers: (data: { keys: string[]; employerKey?: string; employerLabel?: string }) =>
+    request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/import', { method: 'POST', body: JSON.stringify(data) }),
+  setWiseAutoSync: (enabled: boolean) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/auto-sync', { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  runWiseSyncNow: () =>
+    request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/run-now', { method: 'POST' }),
   getPayrollRunDetails: (id: number) => 
     request<PayrollRun & { employees: any[] }>(`/payroll-runs/${id}`),
   calculatePayrollPreview: (employeesInput: any[]) => 
