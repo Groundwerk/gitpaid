@@ -85,6 +85,10 @@ export interface WiseBalanceRef {
   balanceId: number;
 }
 
+// Wise rotates its versioned API prefix quarterly; this is the generation
+// prescribed by the current balance/balance-statement references.
+const WISE_API_VERSION = '2026Q3';
+
 export async function discoverBalance(
   token: string,
   currency: string,
@@ -95,7 +99,12 @@ export async function discoverBalance(
     throw new WiseApiError(404, 'No Wise profiles found on this token.');
   }
   const personal = profiles.find((p) => p?.type === 'personal') ?? profiles[0];
-  const accounts = await wiseGet(token, `/v1/borderless-accounts?profileId=${personal.id}`, fetchImpl, 'Wise balances');
+  const accounts = await wiseGet(
+    token,
+    `/${WISE_API_VERSION}/profiles/${personal.id}/balances?types=STANDARD`,
+    fetchImpl,
+    'Wise balances'
+  );
   if (!Array.isArray(accounts) || accounts.length === 0) {
     throw new WiseApiError(404, 'No Wise balances found on this profile.');
   }
@@ -106,7 +115,7 @@ export async function discoverBalance(
 
 export async function fetchCredits(
   token: string,
-  opts: { currency?: string; days?: number; since?: string },
+  opts: { currency?: string; days?: number; since?: string; profileId?: number },
   fetchImpl: FetchImpl = fetch
 ): Promise<WiseCredit[]> {
   const currency = (opts.currency ?? 'USD').toUpperCase();
@@ -116,11 +125,11 @@ export async function fetchCredits(
     ? Date.parse(`${opts.since}T00:00:00.000Z`)
     : now.getTime() - (opts.days ?? 90) * 24 * 60 * 60 * 1000;
   const start = new Date(startMs).toISOString();
-  const { balanceId } = await discoverBalance(token, currency, fetchImpl);
+  const { profileId, balanceId } = await discoverBalance(token, currency, fetchImpl);
   const qs = new URLSearchParams({ currency, intervalStart: start, intervalEnd: end, type: 'COMPACT' });
   const statement = await wiseGet(
     token,
-    `/v1/borderless-accounts/${balanceId}/statement.json?${qs.toString()}`,
+    `/${WISE_API_VERSION}/profiles/${profileId}/balance-statements/${balanceId}/statement.json?${qs.toString()}`,
     fetchImpl,
     'Wise statement'
   );

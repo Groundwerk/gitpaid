@@ -446,7 +446,7 @@ describe('soleprop routes', () => {
       const u = String(url);
       if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
       if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
-      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
       if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
         transactions: [
           { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
@@ -475,7 +475,7 @@ describe('soleprop routes', () => {
       const u = String(url);
       if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
       if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
-      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
       if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
         transactions: [
           { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
@@ -509,7 +509,7 @@ describe('soleprop routes', () => {
       const u = String(url);
       if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
       if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
-      if (u.includes('/v1/borderless-accounts?')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
       if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
         transactions: [
           { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-9' },
