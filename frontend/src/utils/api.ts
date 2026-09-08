@@ -78,6 +78,8 @@ export const api = {
     request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/auto-sync', { method: 'PUT', body: JSON.stringify({ enabled }) }),
   runWiseSyncNow: () =>
     request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/run-now', { method: 'POST' }),
+  setWiseEmployer: (data: { key: string; label?: string }) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/employer', { method: 'PUT', body: JSON.stringify(data) }),
   getPayrollRunDetails: (id: number) => 
     request<PayrollRun & { employees: any[] }>(`/payroll-runs/${id}`),
   calculatePayrollPreview: (employeesInput: any[]) => 

@@ -540,4 +540,18 @@ describe('soleprop routes', () => {
     expect(state.deposits.some((d: any) => d.wise_transfer_id === 'wise:PAY-8')).toBe(false);
   });
 
+  it('sets the employer without importing', async () => {
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const res = await app.request('/api/soleprop/wise/employer', {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify({ key: 'Deel Inc', label: 'Deel Inc' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    expect(state.wiseToken.employer_key).toBe('deel inc');
+  });
+
 });

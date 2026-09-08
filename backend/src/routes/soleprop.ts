@@ -505,6 +505,31 @@ router.delete('/wise/token', async (c) => {
   }
 });
 
+// PUT /api/soleprop/wise/employer { key, label? } — set the employer
+// without importing anything (used before enabling auto-sync)
+router.put('/wise/employer', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const tokenRow = (await c.env.DB
+      .prepare('SELECT * FROM wise_tokens WHERE company_id = ?')
+      .bind(companyId)
+      .first()) as any;
+    if (!tokenRow) return c.json({ error: 'No Wise token saved.' }, 404);
+    const { key, label } = await c.req.json();
+    const norm = normalizeSender(String(key ?? ''));
+    if (!norm) return c.json({ error: 'Employer sender is required.' }, 400);
+    await c.env.DB.prepare(
+      'UPDATE wise_tokens SET employer_key = ?, employer_label = ? WHERE company_id = ?'
+    ).bind(norm, String(label ?? key).slice(0, 120), companyId).run();
+    return c.json(await wiseStatus(c.env.DB, companyId));
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // ---- Wise statement sync ----
 
 async function getWiseContext(db: any, companyId: number, jwtSecret: string) {

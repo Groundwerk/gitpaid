@@ -167,6 +167,14 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     const next = !(wisePreview?.autoSync ?? false);
     try {
       setWiseBusy(true);
+      if (next && !wisePreview?.employer) {
+        if (!wiseEmployerPick) {
+          triggerToast('Pick your employer from the list first.', 'error');
+          return;
+        }
+        const picked = wisePreview?.candidates.find(c => c.senderKey === wiseEmployerPick);
+        await api.setWiseEmployer({ key: wiseEmployerPick, label: picked?.sender });
+      }
       await api.setWiseAutoSync(next);
       triggerToast(next ? 'Daily auto-sync enabled.' : 'Auto-sync disabled.', 'success');
       await handleSyncPreview();
@@ -273,6 +281,10 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
   }
 
   const showGstBanner = overview.gst.crossed && !overview.gst.hasBN;
+  const distinctSenders = [...new Map((wisePreview?.candidates ?? []).map(c => [c.senderKey, c.sender] as [string, string])).entries()]
+    .map(([key, sender]) => ({ key, sender }))
+    .sort((a, b) => a.sender.localeCompare(b.sender));
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -360,18 +372,33 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
               >
                 Sync now
               </button>
-              <label className="flex items-center gap-2 text-sm text-on-surface-variant ml-auto">
+              <label className="flex items-center gap-2 text-sm text-on-surface-variant ml-auto" title={!wisePreview.employer && !wiseEmployerPick ? 'Pick your employer below first' : undefined}>
                 <input
-                  type="checkbox" checked={wisePreview.autoSync} disabled={wiseBusy || !wisePreview.employer}
+                  type="checkbox" checked={wisePreview.autoSync} disabled={wiseBusy || (!wisePreview.employer && !wiseEmployerPick)}
                   onChange={handleAutoSyncToggle}
                   className="h-4 w-4"
                 />
                 Auto-sync daily
               </label>
             </div>
-            {!wisePreview.employer && (
-              <p className="text-xs text-on-surface-variant">Pick which sender is your pay below — auto-sync only imports from them.</p>
-            )}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="wise-employer">
+                Employer
+              </label>
+              <select
+                id="wise-employer" value={wiseEmployerPick}
+                onChange={(e) => setWiseEmployerPick(e.target.value)}
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full sm:max-w-xs"
+              >
+                <option value="">Select sender…</option>
+                {distinctSenders.map(s => (
+                  <option key={s.key} value={s.key}>{s.sender}</option>
+                ))}
+              </select>
+              {wisePreview.employer && (
+                <span className="text-xs text-on-surface-variant">Saved: {wisePreview.employer.label}</span>
+              )}
+            </div>
             {wisePreview.candidates.length === 0 ? (
               <p className="text-sm text-on-surface-variant">No incoming transfers in the last 90 days.</p>
             ) : (
@@ -384,7 +411,6 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                       <th className="py-2 pr-3">Sender</th>
                       <th className="py-2 pr-3">Amount</th>
                       <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-3">Employer</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -402,14 +428,6 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                         <td className="py-2 pr-3">{c.sender}</td>
                         <td className="py-2 pr-3 whitespace-nowrap">{c.amount.toLocaleString('en-CA')} {c.currency}</td>
                         <td className="py-2 pr-3 text-on-surface-variant">{c.alreadyImported ? 'Imported' : 'New'}</td>
-                        <td className="py-2 pr-3">
-                          <input
-                            type="radio" name="wise-employer" aria-label={`Mark ${c.sender} as employer`}
-                            checked={wiseEmployerPick === c.senderKey}
-                            onChange={() => setWiseEmployerPick(c.senderKey)}
-                            className="h-4 w-4"
-                          />
-                        </td>
                       </tr>
                     ))}
                   </tbody>
