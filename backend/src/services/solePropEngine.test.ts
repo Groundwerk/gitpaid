@@ -72,3 +72,73 @@ describe('calculateSolePropObligations', () => {
     expect(out.total).toBe(0);
   });
 });
+import { buildInstalmentSchedule, allocateToInstalments, gstStatus } from './solePropEngine';
+
+describe('buildInstalmentSchedule', () => {
+  it('gives an August 2026 start an annual row then CRA quarterly rows', () => {
+    const rows = buildInstalmentSchedule('2026-08-15', 2027);
+    expect(rows).toEqual([
+      { tax_year: 2026, due_date: '2027-04-30', kind: 'annual' },
+      { tax_year: 2027, due_date: '2027-03-15', kind: 'quarterly' },
+      { tax_year: 2027, due_date: '2027-06-15', kind: 'quarterly' },
+      { tax_year: 2027, due_date: '2027-09-15', kind: 'quarterly' },
+      { tax_year: 2027, due_date: '2027-12-15', kind: 'quarterly' },
+    ]);
+  });
+
+  it('gives a January start the same first-year annual treatment', () => {
+    const rows = buildInstalmentSchedule('2026-01-10', 2026);
+    expect(rows).toEqual([{ tax_year: 2026, due_date: '2027-04-30', kind: 'annual' }]);
+  });
+});
+
+describe('allocateToInstalments', () => {
+  it('routes start-year deposits to the annual row and later deposits to the next due date', () => {
+    const schedule = buildInstalmentSchedule('2026-08-15', 2027);
+    const alloc = allocateToInstalments(
+      [
+        { received_date: '2026-09-01', tax_owed: 100, cpp_owed: 50, cpp2_owed: 0, voided: 0 },
+        { received_date: '2027-02-01', tax_owed: 200, cpp_owed: 100, cpp2_owed: 10, voided: 0 },
+        { received_date: '2027-04-01', tax_owed: 300, cpp_owed: 0, cpp2_owed: 0, voided: 0 },
+        { received_date: '2026-10-01', tax_owed: 999, cpp_owed: 0, cpp2_owed: 0, voided: 1 },
+      ],
+      schedule
+    );
+    expect(alloc['2027-04-30']).toEqual({ tax: 100, cpp: 50, cpp2: 0, total: 150 });
+    expect(alloc['2027-03-15']).toEqual({ tax: 200, cpp: 100, cpp2: 10, total: 310 });
+    expect(alloc['2027-06-15']).toEqual({ tax: 300, cpp: 0, cpp2: 0, total: 300 });
+    expect(alloc['2027-09-15']).toEqual({ tax: 0, cpp: 0, cpp2: 0, total: 0 });
+  });
+});
+
+describe('gstStatus', () => {
+  it('detects crossing with a 29-day deadline', () => {
+    const status = gstStatus(
+      [
+        { received_date: '2026-09-15', cad_amount: 12000, voided: 0 },
+        { received_date: '2026-12-01', cad_amount: 12000, voided: 0 },
+        { received_date: '2027-02-10', cad_amount: 9000, voided: 0 },
+      ],
+      '2027-02-10'
+    );
+    expect(status.rollingTotal).toBe(33000);
+    expect(status.crossed).toBe(true);
+    expect(status.crossingDate).toBe('2027-02-10');
+    expect(status.deadline).toBe('2027-03-11');
+  });
+
+  it('drops old quarters and ignores voided deposits', () => {
+    const status = gstStatus(
+      [
+        { received_date: '2026-01-15', cad_amount: 29000, voided: 0 },
+        { received_date: '2026-06-01', cad_amount: 5000, voided: 1 },
+        { received_date: '2027-05-01', cad_amount: 1000, voided: 0 },
+      ],
+      '2027-05-01'
+    );
+    expect(status.rollingTotal).toBe(1000);
+    expect(status.crossed).toBe(false);
+    expect(status.crossingDate).toBeNull();
+    expect(status.deadline).toBeNull();
+  });
+});

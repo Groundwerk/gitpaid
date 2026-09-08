@@ -53,3 +53,105 @@ export function calculateSolePropObligations(i: SolePropInputs): SolePropOutputs
   const cpp2 = Math.max(0, round2(cumCpp2 - i.ytdCpp2Opening - i.priorCpp2));
   return { incomeTax, cpp, cpp2, total: round2(incomeTax + cpp + cpp2) };
 }
+
+export interface InstalmentRow { tax_year: number; due_date: string; kind: 'annual' | 'quarterly'; }
+export interface AllocatableDeposit {
+  received_date: string;
+  tax_owed: number;
+  cpp_owed: number;
+  cpp2_owed: number;
+  voided: number;
+}
+export interface Allocation { tax: number; cpp: number; cpp2: number; total: number; }
+
+export function buildInstalmentSchedule(startDate: string, throughYear: number): InstalmentRow[] {
+  const startYear = Number(startDate.slice(0, 4));
+  const rows: InstalmentRow[] = [{ tax_year: startYear, due_date: `${startYear + 1}-04-30`, kind: 'annual' }];
+  for (let y = startYear + 1; y <= throughYear; y++) {
+    for (const md of ['03-15', '06-15', '09-15', '12-15']) {
+      rows.push({ tax_year: y, due_date: `${y}-${md}`, kind: 'quarterly' });
+    }
+  }
+  return rows;
+}
+
+export function allocateToInstalments(
+  deposits: AllocatableDeposit[],
+  schedule: InstalmentRow[]
+): Record<string, Allocation> {
+  const ordered = [...schedule].sort((a, b) =>
+    a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
+  );
+  const out: Record<string, Allocation> = {};
+  for (const r of ordered) out[r.due_date] = { tax: 0, cpp: 0, cpp2: 0, total: 0 };
+  for (const d of deposits) {
+    if (d.voided) continue;
+    const sameYearAnnual = ordered.find(
+      (r) => r.kind === 'annual' && r.tax_year === Number(d.received_date.slice(0, 4))
+    );
+    const target =
+      sameYearAnnual ?? ordered.find((r) => r.kind === 'quarterly' && r.due_date > d.received_date);
+    if (!target) continue;
+    const a = out[target.due_date];
+    a.tax = round2(a.tax + d.tax_owed);
+    a.cpp = round2(a.cpp + d.cpp_owed);
+    a.cpp2 = round2(a.cpp2 + d.cpp2_owed);
+    a.total = round2(a.tax + a.cpp + a.cpp2);
+  }
+  return out;
+}
+
+export interface GstDeposit { received_date: string; cad_amount: number; voided: number; }
+export interface GstStatus {
+  rollingTotal: number;
+  crossed: boolean;
+  crossingDate: string | null;
+  deadline: string | null;
+}
+
+function quarterStart(dateStr: string): string {
+  const [y, m] = dateStr.split('-').map(Number);
+  const qm = Math.floor((m - 1) / 3) * 3 + 1;
+  return `${y}-${String(qm).padStart(2, '0')}-01`;
+}
+
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().split('T')[0];
+}
+
+function addMonths(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + months, d));
+  return dt.toISOString().split('T')[0];
+}
+
+export function gstStatus(deposits: GstDeposit[], asOf: string): GstStatus {
+  const live = deposits.filter((d) => !d.voided && d.received_date <= asOf);
+  const windowStart = addMonths(quarterStart(asOf), -9);
+  const rollingTotal = round2(
+    live.filter((d) => d.received_date >= windowStart).reduce((s, d) => s + d.cad_amount, 0)
+  );
+  let crossingDate: string | null = null;
+  for (const d of [...live].sort((a, b) =>
+    a.received_date < b.received_date ? -1 : a.received_date > b.received_date ? 1 : 0
+  )) {
+    const winStart = addMonths(quarterStart(d.received_date), -9);
+    const windowed = round2(
+      live
+        .filter((x) => x.received_date <= d.received_date && x.received_date >= winStart)
+        .reduce((s, x) => s + x.cad_amount, 0)
+    );
+    if (windowed >= 30000) {
+      crossingDate = d.received_date;
+      break;
+    }
+  }
+  return {
+    rollingTotal,
+    crossed: rollingTotal >= 30000,
+    crossingDate,
+    deadline: crossingDate ? addDays(crossingDate, 29) : null,
+  };
+}
