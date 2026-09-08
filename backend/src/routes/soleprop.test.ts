@@ -269,21 +269,35 @@ describe('soleprop routes', () => {
     expect(state.profile.ytd_cpp_opening).toBe(8460.9);
     expect(state.profile.business_number).toBeNull();
   });
-  it('materializes rows only for elapsed years', async () => {
+  it('shows only the annual row until it is paid', async () => {
     const res = await app.request('/api/soleprop/deposits', {
       method: 'POST',
       headers: await authHeaders(),
       body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
     }, testEnv);
     const json = await res.json() as any;
-    const currentYear = new Date().getUTCFullYear();
-    expect(json.overview.upcoming.length).toBeGreaterThan(0);
-    for (const row of json.overview.upcoming) {
-      expect(row.tax_year).toBeLessThanOrEqual(currentYear);
-    }
-    expect(json.overview.upcoming.some((r: any) => r.kind === 'annual')).toBe(true);
+    expect(json.overview.upcoming).toHaveLength(1);
+    expect(json.overview.upcoming[0]).toMatchObject({ kind: 'annual', due_date: '2027-04-30' });
   });
 
+  it('opens the quarterly gate once the annual balance is paid', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const annual = ((await created.json()) as any).overview.upcoming[0];
+    const paid = await app.request(`/api/soleprop/instalments/${annual.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-04-15' }),
+    }, testEnv);
+    expect(paid.status).toBe(200);
+    const overviewRes = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const overview = ((await overviewRes.json()) as any);
+    const quarterlies = overview.upcoming.filter((r: any) => r.kind === 'quarterly');
+    expect(quarterlies).toHaveLength(1);
+    const today = new Date().toISOString().split('T')[0];
+    for (const q of quarterlies) expect(q.due_date > today).toBe(true);
+  });
   it('prunes stale future rows but keeps paid ones', async () => {
     const headers = await authHeaders();
     await app.request('/api/soleprop/deposits', {

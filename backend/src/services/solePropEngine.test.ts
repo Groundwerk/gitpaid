@@ -72,7 +72,7 @@ describe('calculateSolePropObligations', () => {
     expect(out.total).toBe(0);
   });
 });
-import { buildInstalmentSchedule, allocateToInstalments, gstStatus } from './solePropEngine';
+import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter } from './solePropEngine';
 
 describe('buildInstalmentSchedule', () => {
   it('gives an August 2026 start an annual row then CRA quarterly rows', () => {
@@ -140,5 +140,27 @@ describe('gstStatus', () => {
     expect(status.crossed).toBe(false);
     expect(status.crossingDate).toBeNull();
     expect(status.deadline).toBeNull();
+  });
+});
+
+describe('nextQuarterlyAfter', () => {
+  it('returns the next CRA date strictly after the given date', () => {
+    expect(nextQuarterlyAfter('2027-04-30')).toBe('2027-06-15');
+    expect(nextQuarterlyAfter('2027-03-15')).toBe('2027-06-15');
+    expect(nextQuarterlyAfter('2027-12-15')).toBe('2028-03-15');
+    expect(nextQuarterlyAfter('2027-12-20')).toBe('2028-03-15');
+  });
+});
+
+describe('allocateToInstalments fallback', () => {
+  it('lands deposits past the last row on the latest quarterly', () => {
+    const alloc = allocateToInstalments(
+      [{ received_date: '2027-12-20', tax_owed: 50, cpp_owed: 0, cpp2_owed: 0, voided: 0 }],
+      [
+        { tax_year: 2027, due_date: '2027-09-15', kind: 'quarterly' },
+        { tax_year: 2027, due_date: '2027-12-15', kind: 'quarterly' },
+      ]
+    );
+    expect(alloc['2027-12-15']).toEqual({ tax: 50, cpp: 0, cpp2: 0, total: 50 });
   });
 });

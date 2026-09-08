@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import {
   calculateSolePropObligations,
-  buildInstalmentSchedule,
   allocateToInstalments,
   gstStatus,
+  nextQuarterlyAfter,
 } from '../services/solePropEngine';
 
 const router = new Hono<{
@@ -87,15 +87,54 @@ async function buildOverview(db: any, companyId: number, profile: any) {
 }
 
 async function reallocate(db: any, companyId: number, profile: any) {
+  const today = todayStr();
   const deposits = await liveDeposits(db, companyId);
-  const nowYear = new Date().getUTCFullYear();
-  const latestDepositYear = deposits.reduce(
-    (m, d) => Math.max(m, Number(String(d.received_date).slice(0, 4))),
-    nowYear
-  );
-  // Only materialize rows for elapsed years: a 2026 start shows just the
-  // annual row until 2027 arrives, instead of all future quarterlies at once.
-  const schedule = buildInstalmentSchedule(profile.start_date, Math.max(nowYear, latestDepositYear));
+  const startYear = Number(String(profile.start_date).slice(0, 4));
+  const annualDue = `${startYear + 1}-04-30`;
+
+  const existingRes = await db
+    .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ?')
+    .bind(companyId)
+    .all() as any;
+  const existing: any[] = existingRes?.results ?? [];
+
+  // The gate: quarterly instalments only exist after the first annual
+  // balance (or any quarterly) is paid — mirroring CRA assessment.
+  // Until then the annual row is the only row and accumulates everything.
+  const gateOpen =
+    existing.some((r) => r.kind === 'annual' && r.paid === 1) ||
+    existing.some((r) => r.kind === 'quarterly' && r.paid === 1);
+
+  // Rows eligible to receive money: the unpaid annual row plus all
+  // unpaid quarterly rows. Paid rows keep their frozen amounts.
+  const wanted: { tax_year: number; due_date: string; kind: string }[] = [
+    { tax_year: startYear, due_date: annualDue, kind: 'annual' },
+  ];
+  if (gateOpen) {
+    const quarterlies = existing.filter((r) => r.kind === 'quarterly');
+    const hasUpcoming = quarterlies.some((r) => r.paid !== 1 && r.due_date >= today);
+    if (!hasUpcoming) {
+      const latest = quarterlies.map((r) => r.due_date).sort().pop();
+      const base = [today, latest ?? today].sort().pop() as string;
+      const due = nextQuarterlyAfter(base);
+      wanted.push({ tax_year: Number(due.slice(0, 4)), due_date: due, kind: 'quarterly' });
+    }
+    // Keep overdue unpaid quarterlies as reminders, plus the single horizon row.
+    const horizon = wanted.find((w) => w.kind === 'quarterly');
+    for (const r of quarterlies) {
+      if (r.paid === 1) continue;
+      if (r.due_date < today || (horizon && r.due_date === horizon.due_date)) {
+        wanted.push({ tax_year: r.tax_year, due_date: r.due_date, kind: 'quarterly' });
+      }
+    }
+  }
+
+  const eligible = wanted.filter((w) => {
+    if (w.kind === 'annual') {
+      return !existing.some((r) => r.kind === 'annual' && r.due_date === w.due_date && r.paid === 1);
+    }
+    return true;
+  });
   const alloc = allocateToInstalments(
     deposits.map((d) => ({
       received_date: d.received_date,
@@ -104,28 +143,24 @@ async function reallocate(db: any, companyId: number, profile: any) {
       cpp2_owed: d.cpp2_owed,
       voided: 0,
     })),
-    schedule
+    eligible.map((w) => ({ tax_year: w.tax_year, due_date: w.due_date, kind: w.kind as 'annual' | 'quarterly' }))
   );
-  const wanted = new Set(schedule.map((r) => r.due_date));
-  for (const row of schedule) {
+  const wantedDates = new Set(wanted.map((w) => w.due_date));
+  for (const row of wanted) {
     await db
       .prepare('INSERT OR IGNORE INTO sole_prop_instalments (company_id, tax_year, due_date, kind) VALUES (?, ?, ?, ?)')
       .bind(companyId, row.tax_year, row.due_date, row.kind)
       .run();
-    const a = alloc[row.due_date];
+    const a = alloc[row.due_date] ?? { tax: 0, cpp: 0, cpp2: 0, total: 0 };
     await db
       .prepare('UPDATE sole_prop_instalments SET tax_amount = ?, cpp_amount = ?, cpp2_amount = ?, total_amount = ? WHERE company_id = ? AND due_date = ? AND paid = 0')
       .bind(a.tax, a.cpp, a.cpp2, a.total, companyId, row.due_date)
       .run();
   }
-  // Prune unpaid rows from years that have not arrived yet (e.g. rows
-  // created before lazy scheduling existed). Paid rows are never touched.
-  const existing = await db
-    .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ?')
-    .bind(companyId)
-    .all() as any;
-  for (const row of existing?.results ?? []) {
-    if (!row.paid && !wanted.has(row.due_date)) {
+  // Prune unpaid rows outside the wanted set (stale rows from earlier
+  // scheduling rules). Paid rows are never touched.
+  for (const row of existing) {
+    if (!row.paid && !wantedDates.has(row.due_date)) {
       await db
         .prepare('DELETE FROM sole_prop_instalments WHERE id = ? AND company_id = ?')
         .bind(row.id, companyId)
@@ -302,6 +337,9 @@ router.post('/instalments/:id/pay', async (c) => {
         VALUES (?, 'INSTALMENT', ?, ?, ?)
       `).bind(companyId, paidDate, instalment.total_amount, instalment.due_date).run();
     }
+    // Paying the annual balance opens the quarterly gate: materialize the
+    // next quarterly row (and prune anything stale) right away.
+    await reallocate(c.env.DB, companyId, ws.profile);
     const updated = await c.env.DB.prepare(
       'SELECT * FROM sole_prop_instalments WHERE id = ? AND company_id = ?'
     ).bind(id, companyId).first();

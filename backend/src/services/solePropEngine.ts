@@ -75,6 +75,14 @@ export function buildInstalmentSchedule(startDate: string, throughYear: number):
   return rows;
 }
 
+export function nextQuarterlyAfter(dateStr: string): string {
+  const y = Number(dateStr.slice(0, 4));
+  const cands = [`${y}-03-15`, `${y}-06-15`, `${y}-09-15`, `${y}-12-15`, `${y + 1}-03-15`];
+  const found = cands.find((c) => c > dateStr);
+  if (!found) throw new Error(`No quarterly date after ${dateStr}`);
+  return found;
+}
+
 export function allocateToInstalments(
   deposits: AllocatableDeposit[],
   schedule: InstalmentRow[]
@@ -89,8 +97,11 @@ export function allocateToInstalments(
     const sameYearAnnual = ordered.find(
       (r) => r.kind === 'annual' && r.tax_year === Number(d.received_date.slice(0, 4))
     );
+    const quarterlies = ordered.filter((r) => r.kind === 'quarterly');
     const target =
-      sameYearAnnual ?? ordered.find((r) => r.kind === 'quarterly' && r.due_date > d.received_date);
+      sameYearAnnual ??
+      quarterlies.find((r) => r.due_date > d.received_date) ??
+      quarterlies[quarterlies.length - 1];
     if (!target) continue;
     const a = out[target.due_date];
     a.tax = round2(a.tax + d.tax_owed);
