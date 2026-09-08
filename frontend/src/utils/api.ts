@@ -62,6 +62,14 @@ export const api = {
 
   // Payroll Runs
   getPayrollRuns: () => request<PayrollRun[]>('/payroll-runs'),
+  getWiseStatus: () =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/status'),
+  saveWiseToken: (data: { token: string; label?: string }) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'POST', body: JSON.stringify(data) }),
+  testWiseToken: () =>
+    request<{ ok: boolean; profiles: number }>('/soleprop/wise/test', { method: 'POST' }),
+  deleteWiseToken: () =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'DELETE' }),
   getPayrollRunDetails: (id: number) => 
     request<PayrollRun & { employees: any[] }>(`/payroll-runs/${id}`),
   calculatePayrollPreview: (employeesInput: any[]) => 

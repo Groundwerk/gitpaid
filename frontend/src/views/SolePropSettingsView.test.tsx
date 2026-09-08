@@ -7,6 +7,10 @@ vi.mock('../utils/api', () => ({ api: {
   getSolePropOverview: vi.fn(),
   updateSettings: vi.fn(),
   updateSolePropProfile: vi.fn(),
+  getWiseStatus: vi.fn(),
+  saveWiseToken: vi.fn(),
+  testWiseToken: vi.fn(),
+  deleteWiseToken: vi.fn(),
 } }));
 
 const overview: any = {
@@ -24,6 +28,7 @@ describe('SolePropSettingsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
   });
 
   it('shows profile fields with no payroll sections', async () => {
@@ -42,4 +47,28 @@ describe('SolePropSettingsView', () => {
     fireEvent.click(screen.getByRole('button', { name: /save business number/i }));
     await waitFor(() => expect(api.updateSolePropProfile).toHaveBeenCalledWith({ business_number: '123456789' }));
   });
+  it('renders a masked token field when disconnected', async () => {
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    const input = await screen.findByPlaceholderText(/paste token/i) as HTMLInputElement;
+    expect(input.type).toBe('password');
+  });
+
+  it('saves the token without ever displaying it', async () => {
+    vi.mocked(api.saveWiseToken).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: '2026-09-08' });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByPlaceholderText(/paste token/i), { target: { value: 'live-test-token-abc123' } });
+    fireEvent.click(screen.getByRole('button', { name: /save token/i }));
+    await waitFor(() => expect(api.saveWiseToken).toHaveBeenCalledWith({ token: 'live-test-token-abc123' }));
+    expect(await screen.findByText(/••••c123/)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('live-test-token-abc123')).toBeNull();
+  });
+
+  it('shows test and remove actions when connected', async () => {
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: 'Personal', updated_at: '2026-09-08' });
+    vi.mocked(api.testWiseToken).mockResolvedValue({ ok: true, profiles: 1 });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /test connection/i }));
+    await waitFor(() => expect(api.testWiseToken).toHaveBeenCalledTimes(1));
+  });
+
 });

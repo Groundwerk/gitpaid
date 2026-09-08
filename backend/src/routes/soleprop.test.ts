@@ -15,6 +15,7 @@ function makeState() {
     deposits: [] as any[],
     instalments: [] as any[],
     remittances: [] as any[],
+    wiseToken: null as any,
     ids: { deposit: 0, instalment: 0, remittance: 0 },
   };
 }
@@ -32,6 +33,7 @@ const mockDb = {
         if (sql.includes('FROM sole_prop_instalments WHERE id')) {
           return state.instalments.find((r) => r.id === args[0] && r.company_id === args[1]) ?? null;
         }
+        if (sql.includes('FROM wise_tokens')) return state.wiseToken;
         return null;
       },
       all: async () => {
@@ -98,6 +100,17 @@ const mockDb = {
           state.instalments = state.instalments.filter((x) => !(x.id === args[0] && x.company_id === args[1]));
           return { success: true, meta: {} };
         }
+        if (sql.includes('INSERT INTO wise_tokens')) {
+          state.wiseToken = {
+            company_id: args[0], encrypted_token: args[1], last4: args[2],
+            label: args[3] ?? null, updated_at: args[4],
+          };
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('DELETE FROM wise_tokens')) {
+          state.wiseToken = null;
+          return { success: true, meta: {} };
+        }
         if (sql.includes('INSERT INTO remittance_payments')) {
           state.remittances.push({
             id: ++state.ids.remittance, company_id: args[0], type: 'INSTALMENT',
@@ -128,6 +141,9 @@ async function authHeaders() {
 const okFx = async (url: string) => {
   if (String(url).includes('frankfurter')) {
     return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+  }
+  if (String(url).includes('api.wise.com/v1/profiles')) {
+    return { ok: true, status: 200, json: async () => ([{ id: 123, type: 'personal' }]) } as any;
   }
   throw new Error('unexpected fetch ' + url);
 };
@@ -352,6 +368,56 @@ describe('soleprop routes', () => {
       body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 100, currency: 'XX' }),
     }, testEnv);
     expect(res.status).toBe(400);
+  });
+
+  it('reports disconnected Wise status initially', async () => {
+    const res = await app.request('/api/soleprop/wise/status', { headers: await authHeaders() }, testEnv);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ connected: false, last4: null, label: null, updated_at: null });
+  });
+
+  it('saves a Wise token only after live validation and never returns it', async () => {
+    const res = await app.request('/api/soleprop/wise/token', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ token: 'live-test-token-abc123', label: 'Personal' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json).toEqual({ connected: true, last4: 'c123', label: 'Personal', updated_at: expect.any(String) });
+    // Stored ciphertext must not contain the plaintext token
+    expect(state.wiseToken.encrypted_token).not.toContain('live-test-token-abc123');
+    expect(JSON.stringify(json)).not.toContain('live-test-token-abc123');
+  });
+
+  it('rejects invalid Wise tokens without storing', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('frankfurter')) {
+        return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as any;
+    });
+    const res = await app.request('/api/soleprop/wise/token', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ token: 'bad-token' }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+    expect(state.wiseToken).toBeNull();
+  });
+
+  it('tests the stored token and removes it', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/wise/token', {
+      method: 'POST', headers,
+      body: JSON.stringify({ token: 'live-test-token-abc123' }),
+    }, testEnv);
+    const test = await app.request('/api/soleprop/wise/test', { method: 'POST', headers }, testEnv);
+    expect(test.status).toBe(200);
+    expect(await test.json()).toEqual({ ok: true, profiles: 1 });
+    const del = await app.request('/api/soleprop/wise/token', { method: 'DELETE', headers }, testEnv);
+    expect(del.status).toBe(200);
+    expect(state.wiseToken).toBeNull();
   });
 
 });

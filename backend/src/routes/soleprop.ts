@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { encryptText, decryptText } from '../utils/crypto';
 import {
   calculateSolePropObligations,
   allocateToInstalments,
@@ -9,9 +10,9 @@ import {
 const router = new Hono<{
   Bindings: {
     DB: D1Database;
+    JWT_SECRET: string;
   };
 }>();
-
 const FX_CURRENCIES = [
   'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD',
   'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK',
@@ -368,6 +369,106 @@ router.put('/profile', async (c) => {
       'SELECT * FROM sole_prop_profile WHERE company_id = ?'
     ).bind(companyId).first();
     return c.json({ profile });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Wise personal-token storage. The token is validated live against Wise,
+// stored AES-GCM encrypted (same crypto.ts + JWT_SECRET precedent as Gmail
+// refresh tokens), and never returned by any endpoint — only metadata.
+async function validateWiseToken(token: string): Promise<{ ok: boolean; profiles: number }> {
+  try {
+    const res = await fetch('https://api.wise.com/v1/profiles', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { ok: false, profiles: 0 };
+    const json = (await res.json()) as unknown;
+    return { ok: true, profiles: Array.isArray(json) ? json.length : 0 };
+  } catch {
+    return { ok: false, profiles: 0 };
+  }
+}
+
+async function wiseStatus(db: any, companyId: number) {
+  const row = (await db
+    .prepare('SELECT * FROM wise_tokens WHERE company_id = ?')
+    .bind(companyId)
+    .first()) as any;
+  if (!row) return { connected: false, last4: null, label: null, updated_at: null };
+  return { connected: true, last4: row.last4, label: row.label ?? null, updated_at: row.updated_at };
+}
+
+// GET /api/soleprop/wise/status
+router.get('/wise/status', async (c) => {
+  const companyId = getCompanyId(c);
+  if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+  const ws = await loadWorkspace(c.env.DB, companyId);
+  if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+  return c.json(await wiseStatus(c.env.DB, companyId));
+});
+
+// POST /api/soleprop/wise/token — validate live, then store encrypted
+router.post('/wise/token', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    if (!c.env.JWT_SECRET) return c.json({ error: 'Server encryption secret is not configured.' }, 500);
+    const { token, label } = await c.req.json();
+    if (typeof token !== 'string' || token.trim().length < 8) {
+      return c.json({ error: 'A valid Wise personal token is required.' }, 400);
+    }
+    const check = await validateWiseToken(token.trim());
+    if (!check.ok) return c.json({ error: 'Wise rejected this token. Check it has read access and try again.' }, 400);
+    const encrypted = await encryptText(token.trim(), c.env.JWT_SECRET);
+    const now = new Date().toISOString();
+    await c.env.DB.prepare(`
+      INSERT INTO wise_tokens (company_id, encrypted_token, last4, label, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(company_id) DO UPDATE SET
+        encrypted_token = excluded.encrypted_token,
+        last4 = excluded.last4,
+        label = excluded.label,
+        updated_at = excluded.updated_at
+    `).bind(companyId, encrypted, token.trim().slice(-4), String(label ?? '').slice(0, 60) || null, now).run();
+    return c.json(await wiseStatus(c.env.DB, companyId));
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST /api/soleprop/wise/test — re-validate the stored token
+router.post('/wise/test', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    if (!c.env.JWT_SECRET) return c.json({ error: 'Server encryption secret is not configured.' }, 500);
+    const row = (await c.env.DB
+      .prepare('SELECT * FROM wise_tokens WHERE company_id = ?')
+      .bind(companyId)
+      .first()) as any;
+    if (!row) return c.json({ error: 'No Wise token saved.' }, 404);
+    const check = await validateWiseToken(await decryptText(row.encrypted_token, c.env.JWT_SECRET));
+    if (!check.ok) return c.json({ error: 'Stored Wise token is no longer valid.' }, 400);
+    return c.json({ ok: true, profiles: check.profiles });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE /api/soleprop/wise/token
+router.delete('/wise/token', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    await c.env.DB.prepare('DELETE FROM wise_tokens WHERE company_id = ?').bind(companyId).run();
+    return c.json(await wiseStatus(c.env.DB, companyId));
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

@@ -17,12 +17,16 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
   const [savingBn, setSavingBn] = useState(false);
   const [name, setName] = useState('');
   const [bn, setBn] = useState('');
+  const [wise, setWise] = useState<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null } | null>(null);
+  const [wiseToken, setWiseToken] = useState('');
+  const [wiseBusy, setWiseBusy] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
         const data = await api.getSolePropOverview();
         setOverview(data);
+        setWise(await api.getWiseStatus());
       } catch (error: any) {
         console.error('Failed to load sole-prop settings:', error);
         triggerToast(error.message || 'Failed to load settings.', 'error');
@@ -68,6 +72,49 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
       triggerToast(error.message || 'Failed to save Business Number.', 'error');
     } finally {
       setSavingBn(false);
+    }
+  };
+
+  const handleSaveWise = async () => {
+    if (wiseToken.trim().length < 8) {
+      triggerToast('Paste a Wise personal token first.', 'error');
+      return;
+    }
+    try {
+      setWiseBusy(true);
+      const status = await api.saveWiseToken({ token: wiseToken.trim() });
+      setWise(status);
+      setWiseToken('');
+      triggerToast('Wise token verified and saved.', 'success');
+    } catch (error: any) {
+      triggerToast(error.message || 'Wise rejected this token.', 'error');
+    } finally {
+      setWiseBusy(false);
+    }
+  };
+
+  const handleTestWise = async () => {
+    try {
+      setWiseBusy(true);
+      const res = await api.testWiseToken();
+      triggerToast(res.ok ? `Wise connected (${res.profiles} profile${res.profiles === 1 ? '' : 's'}).` : 'Wise test failed.', res.ok ? 'success' : 'error');
+    } catch (error: any) {
+      triggerToast(error.message || 'Wise test failed.', 'error');
+    } finally {
+      setWiseBusy(false);
+    }
+  };
+
+  const handleRemoveWise = async () => {
+    if (!window.confirm('Remove the saved Wise token? Automatic import stops.')) return;
+    try {
+      setWiseBusy(true);
+      setWise(await api.deleteWiseToken());
+      triggerToast('Wise token removed.', 'success');
+    } catch (error: any) {
+      triggerToast(error.message || 'Failed to remove token.', 'error');
+    } finally {
+      setWiseBusy(false);
     }
   };
 
@@ -165,6 +212,56 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
         <p className="text-xs text-on-surface-variant">
           Locked after onboarding — every CPP calculation builds on these figures.
         </p>
+      </div>
+
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">
+        <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2">Bank connections</h2>
+        {wise?.connected ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm">
+              Wise token saved <span className="font-mono font-semibold">••••{wise.last4}</span>
+              {wise.label ? <span className="text-on-surface-variant"> ({wise.label})</span> : null}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button" onClick={handleTestWise} disabled={wiseBusy}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant hover:border-highlight transition-colors disabled:opacity-50"
+              >
+                Test connection
+              </button>
+              <button
+                type="button" onClick={handleRemoveWise} disabled={wiseBusy}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold text-outline hover:text-error hover:border-error/20 transition-colors disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-on-surface-variant">
+              Paste a Wise personal token (read-only is enough) to enable automatic deposit import.
+              It is verified live, stored encrypted, and never shown again.
+            </p>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sps-wise">
+              Wise personal token
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="sps-wise" type="password" value={wiseToken} onChange={(e) => setWiseToken(e.target.value)}
+                placeholder="Paste token"
+                autoComplete="off"
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full font-mono"
+              />
+              <button
+                type="button" onClick={handleSaveWise} disabled={wiseBusy}
+                className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+              >
+                Save token
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
