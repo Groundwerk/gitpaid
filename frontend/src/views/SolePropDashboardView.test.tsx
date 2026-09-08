@@ -84,7 +84,7 @@ describe('SolePropDashboardView', () => {
     render(<SolePropDashboardView triggerToast={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: /sync from wise/i }));
     await waitFor(() => expect(api.getWisePreview).toHaveBeenCalled());
-    expect(await screen.findByText('Deel Inc')).toBeInTheDocument();
+    expect(await screen.findByText('Deel Inc', { selector: 'td' })).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText(/Import Deel Inc 2026-09-05/));
     fireEvent.change(screen.getByLabelText(/employer/i), { target: { value: 'deel inc' } });
     fireEvent.click(screen.getByRole('button', { name: /import selected/i }));
