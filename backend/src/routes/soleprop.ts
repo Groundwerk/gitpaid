@@ -509,7 +509,7 @@ router.delete('/wise/token', async (c) => {
 
 async function getWiseContext(db: any, companyId: number, jwtSecret: string) {
   const ws = await loadWorkspace(db, companyId);
-  if ('error' in ws) throw new DepositError(Number(ws.status) || 500, ws.error);
+  if ('error' in ws) throw new DepositError(Number(ws.status) || 500, String(ws.error ?? 'Unknown error'));
   if (!jwtSecret) throw new DepositError(500, 'Server encryption secret is not configured.');
   const tokenRow = (await db
     .prepare('SELECT * FROM wise_tokens WHERE company_id = ?')
