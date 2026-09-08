@@ -77,6 +77,7 @@ export interface SolePropInstalment {
 export interface SolePropOverview {
   profile: SolePropProfile;
   totals: { cad: number; tax: number; cpp: number; cpp2: number };
+  deposits: SolePropDeposit[];
   upcoming: SolePropInstalment[];
   gst: { rollingTotal: number; crossed: boolean; crossingDate: string | null; deadline: string | null; hasBN: boolean };
 }

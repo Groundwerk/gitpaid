@@ -71,6 +71,12 @@ async function buildOverview(db: any, companyId: number, profile: any) {
   return {
     profile,
     totals,
+    deposits: deposits.map((d) => ({
+      id: d.id, received_date: d.received_date, foreign_amount: d.foreign_amount,
+      currency: d.currency, fx_rate: d.fx_rate, fx_date_used: d.fx_date_used,
+      cad_amount: d.cad_amount, tax_owed: d.tax_owed, cpp_owed: d.cpp_owed,
+      cpp2_owed: d.cpp2_owed, note: d.note, voided: d.voided,
+    })),
     upcoming: instRes?.results ?? [],
     gst: { ...gst, hasBN: !!profile.business_number },
   };

@@ -12,6 +12,7 @@ interface SidebarProps {
   brandLogo?: string | null;
   companyDisplayName?: string;
   useCompanyBranding?: boolean;
+  accountType?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -25,15 +26,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   brandLogo,
   companyDisplayName,
-  useCompanyBranding = false
+  useCompanyBranding = false,
+  accountType = 'company'
 }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'employees', label: 'Employees', icon: 'group' },
-    { id: 'run-payroll', label: 'Payroll Run', icon: 'payments' },
-    { id: 'reports', label: 'Reports', icon: 'description' },
-    { id: 'settings', label: 'Settings', icon: 'settings' },
-  ];
+  const navItems = accountType === 'sole_prop'
+    ? [
+        { id: 'dashboard', label: 'Ledger', icon: 'account_balance' },
+        { id: 'settings', label: 'Settings', icon: 'settings' },
+      ]
+    : [
+        { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+        { id: 'employees', label: 'Employees', icon: 'group' },
+        { id: 'run-payroll', label: 'Payroll Run', icon: 'payments' },
+        { id: 'reports', label: 'Reports', icon: 'description' },
+        { id: 'settings', label: 'Settings', icon: 'settings' },
+      ];
 
   const handleTabClick = (tabId: string) => {
     setActiveTab(tabId);

@@ -9,6 +9,7 @@ import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
 import LoginView from './views/LoginView';
 import OnboardingView from './views/OnboardingView';
+import SolePropDashboardView from './views/SolePropDashboardView';
 import { api } from './utils/api';
 
 interface Toast {
@@ -28,6 +29,7 @@ export const App: React.FC = () => {
     return val && val !== 'null' ? parseInt(val, 10) : null;
   });
   const [companyName, setCompanyName] = useState<string>('My Business');
+  const [accountType, setAccountType] = useState<string>('company');
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandColor, setBrandColor] = useState<string | null>(null);
   const [useCompanyBranding, setUseCompanyBranding] = useState<boolean>(false);
@@ -68,6 +70,7 @@ export const App: React.FC = () => {
           setBrandLogo(settings?.logo_url || null);
           setBrandColor(settings?.brand_color || null);
           setUseCompanyBranding(settings?.use_company_branding === 1);
+          setAccountType(settings?.account_type || 'company');
         })
         .catch(err => {
           console.error('Failed to load company settings:', err);
@@ -140,6 +143,7 @@ export const App: React.FC = () => {
     setUserAvatar(null);
     setCompanyId(null);
     setCompanyName('My Business');
+    setAccountType('company');
     setBrandLogo(null);
     setBrandColor(null);
     setUseCompanyBranding(false);
@@ -175,6 +179,7 @@ export const App: React.FC = () => {
           setBrandLogo(settings?.logo_url || null);
           setBrandColor(settings?.brand_color || null);
           setUseCompanyBranding(settings?.use_company_branding === 1);
+          setAccountType(settings?.account_type || 'company');
         })
         .catch(err => console.error(err));
     }
@@ -195,6 +200,7 @@ export const App: React.FC = () => {
     if (isOnboardingNew) return 'Onboard New Employee';
     if (editingEmployeeId !== null) return 'Edit Employee Profile';
     
+    if (accountType === 'sole_prop' && activeTab === 'dashboard') return 'Sole Proprietor';
     switch (activeTab) {
       case 'dashboard': return 'Dashboard';
       case 'employees': return 'Employee Directory';
@@ -226,7 +232,9 @@ export const App: React.FC = () => {
         />
       );
     }
-
+    if (accountType === 'sole_prop' && (activeTab === 'dashboard' || activeTab === 'employees' || activeTab === 'run-payroll' || activeTab === 'reports')) {
+      return <SolePropDashboardView triggerToast={triggerToast} />;
+    }
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -366,6 +374,7 @@ export const App: React.FC = () => {
         brandLogo={brandLogo}
         companyDisplayName={companyName}
         useCompanyBranding={useCompanyBranding}
+        accountType={accountType}
       />
 
 
@@ -375,7 +384,7 @@ export const App: React.FC = () => {
         <Header 
           title={getPageTitle()}
           onMenuClick={() => setMobileSidebarOpen(true)}
-          onNewEmployeeClick={() => setIsOnboardingNew(true)}
+          onNewEmployeeClick={accountType === 'sole_prop' ? () => {} : () => setIsOnboardingNew(true)}
           activeTab={activeTab}
           setActiveTab={navigateToTab}
           companyName={companyName}
