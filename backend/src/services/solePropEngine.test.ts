@@ -72,7 +72,7 @@ describe('calculateSolePropObligations', () => {
     expect(out.total).toBe(0);
   });
 });
-import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter, ledgerBreakdown } from './solePropEngine';
+import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter, ledgerBreakdown, validateOpenings } from './solePropEngine';
 
 describe('buildInstalmentSchedule', () => {
   it('gives an August 2026 start an annual row then CRA quarterly rows', () => {
@@ -187,5 +187,14 @@ describe('ledgerBreakdown', () => {
     // CPP room drains as pensionable accumulates
     expect(rows[0].cppRoomAfter).toBeLessThan(8460.9);
     expect(rows[1].cppRoomAfter).toBeLessThan(rows[0].cppRoomAfter);
+  });
+});
+
+describe('validateOpenings', () => {
+  it('accepts possible figures and rejects impossible ones', () => {
+    expect(validateOpenings(0, 0, 0)).toBeNull();
+    expect(validateOpenings(180000, 8460.9, 832)).toBeNull();
+    expect(validateOpenings(0, 8876.9, 0)).toContain('8,460.9');
+    expect(validateOpenings(0, 0, 833)).toContain('832');
   });
 });

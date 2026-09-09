@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { sign } from 'hono/jwt';
+import { validateOpenings } from '../services/solePropEngine';
 
 const router = new Hono<{
   Bindings: {
@@ -201,6 +202,13 @@ const saveSettings = async (c: any) => {
           ? String(sole_prop_start_date)
           : new Date().toISOString().split('T')[0];
         const bnDigits = String(sole_prop_business_number ?? business_number ?? '').replace(/\D/g, '');
+        const initPens = Number(sole_prop_ytd_pensionable) || 0;
+        const initCpp = Number(sole_prop_ytd_cpp) || 0;
+        const initCpp2 = Number(sole_prop_ytd_cpp2) || 0;
+        const openingsError = validateOpenings(initPens, initCpp, initCpp2);
+        if (openingsError) {
+          return c.json({ error: openingsError }, 400);
+        }
         await c.env.DB.prepare(`
           INSERT INTO sole_prop_profile
             (company_id, business_number, start_date, province, ytd_pensionable_opening, ytd_cpp_opening, ytd_cpp2_opening, instalment_mode)
@@ -209,9 +217,9 @@ const saveSettings = async (c: any) => {
           newCompanyId,
           bnDigits.length === 9 ? bnDigits : null,
           startDate,
-          Number(sole_prop_ytd_pensionable) || 0,
-          Number(sole_prop_ytd_cpp) || 0,
-          Number(sole_prop_ytd_cpp2) || 0
+          initPens,
+          initCpp,
+          initCpp2
         ).run();
       }
 
