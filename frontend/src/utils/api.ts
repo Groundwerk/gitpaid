@@ -1,4 +1,4 @@
-import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropInstalment, SolePropOverview, SolePropProfile } from '../types';
+import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropInstalment, SolePropOverview, SolePropProfile, WiseStatus } from '../types';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -65,23 +65,23 @@ export const api = {
   updateSolePropProfile: (profile: { business_number?: string; ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number }) =>
     request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) }),
   getWiseStatus: () =>
-    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/status'),
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null; autoSync: boolean; employer: { key: string; label: string } | null }>('/soleprop/wise/status'),
   saveWiseToken: (data: { token: string; label?: string }) =>
-    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'POST', body: JSON.stringify(data) }),
+    request<WiseStatus>('/soleprop/wise/token', { method: 'POST', body: JSON.stringify(data) }),
   testWiseToken: () =>
     request<{ ok: boolean; profiles: number }>('/soleprop/wise/test', { method: 'POST' }),
   deleteWiseToken: () =>
-    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'DELETE' }),
+    request<WiseStatus>('/soleprop/wise/token', { method: 'DELETE' }),
   getWisePreview: (days = 90, currency = 'USD') =>
     request<{ employer: { key: string; label: string } | null; autoSync: boolean; candidates: { key: string; date: string; amount: number; currency: string; sender: string; senderKey: string; reference: string; alreadyImported: boolean }[] }>(`/soleprop/wise/preview?days=${days}&currency=${currency}`),
   importWiseTransfers: (data: { keys: string[]; employerKey?: string; employerLabel?: string }) =>
     request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/import', { method: 'POST', body: JSON.stringify(data) }),
   setWiseAutoSync: (enabled: boolean) =>
-    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/auto-sync', { method: 'PUT', body: JSON.stringify({ enabled }) }),
+    request<WiseStatus>('/soleprop/wise/auto-sync', { method: 'PUT', body: JSON.stringify({ enabled }) }),
   runWiseSyncNow: () =>
     request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/run-now', { method: 'POST' }),
   setWiseEmployer: (data: { key: string; label?: string }) =>
-    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/employer', { method: 'PUT', body: JSON.stringify(data) }),
+    request<WiseStatus>('/soleprop/wise/employer', { method: 'PUT', body: JSON.stringify(data) }),
   // Payroll Runs
   getPayrollRuns: () => request<PayrollRun[]>('/payroll-runs'),
   getPayrollRunDetails: (id: number) => 

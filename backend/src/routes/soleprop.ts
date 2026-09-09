@@ -476,8 +476,12 @@ async function wiseStatus(db: any, companyId: number) {
     .prepare('SELECT * FROM wise_tokens WHERE company_id = ?')
     .bind(companyId)
     .first()) as any;
-  if (!row) return { connected: false, last4: null, label: null, updated_at: null };
-  return { connected: true, last4: row.last4, label: row.label ?? null, updated_at: row.updated_at };
+  if (!row) return { connected: false, last4: null, label: null, updated_at: null, autoSync: false, employer: null };
+  return {
+    connected: true, last4: row.last4, label: row.label ?? null, updated_at: row.updated_at,
+    autoSync: row.auto_sync === 1,
+    employer: row.employer_key ? { key: row.employer_key, label: row.employer_label ?? row.employer_key } : null,
+  };
 }
 
 // GET /api/soleprop/wise/status
