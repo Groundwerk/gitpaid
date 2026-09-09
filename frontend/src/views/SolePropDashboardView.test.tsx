@@ -128,7 +128,7 @@ describe('SolePropDashboardView', () => {
     const row = (await screen.findByText('2026-08-31')).closest('tr') as HTMLElement;
     expect(screen.queryByText(/covers dollars/)).toBeNull();
     fireEvent.mouseEnter(row);
-    expect(await screen.findByText(/covers dollars/)).toBeInTheDocument();
+    expect(await screen.findByText(/covers dollars/, undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.getByText(/19\.1% marginal/)).toBeInTheDocument();
   });
   it('toggles daily auto-sync once an employer exists', async () => {
