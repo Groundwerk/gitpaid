@@ -22,7 +22,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       window.dispatchEvent(new CustomEvent('auth-unauthorized'));
     }
     const err = await res.json().catch(() => ({ error: 'An unknown error occurred' }));
-    throw new Error(err.error || `HTTP error ${res.status}`);
+    const error = new Error(err.error || `HTTP error ${res.status}`) as Error & { status: number };
+    error.status = res.status;
+    throw error;
   }
   return res.json() as Promise<T>;
 }

@@ -373,6 +373,22 @@ describe('soleprop routes', () => {
     expect(json.totals.tax).toBe(0);
   });
 
+  it('rejects CPP openings above the annual maximum', async () => {
+    const over = await app.request('/api/soleprop/profile', {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify({ ytd_cpp_opening: 8876.9 }),
+    }, testEnv);
+    expect(over.status).toBe(400);
+    const over2 = await app.request('/api/soleprop/profile', {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify({ ytd_cpp2_opening: 833 }),
+    }, testEnv);
+    expect(over2.status).toBe(400);
+    expect(state.profile.ytd_cpp_opening).toBe(0);
+  });
+
   it('shows only the annual row until it is paid', async () => {
     const res = await app.request('/api/soleprop/deposits', {
       method: 'POST',

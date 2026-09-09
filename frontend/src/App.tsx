@@ -73,8 +73,16 @@ export const App: React.FC = () => {
           setUseCompanyBranding(settings?.use_company_branding === 1);
           setAccountType(settings?.account_type || 'company');
         })
-        .catch(err => {
+        .catch((err: any) => {
           console.error('Failed to load company settings:', err);
+          // Stale local session (e.g. fresh database): the stored company
+          // no longer exists, so drop back to onboarding instead of an
+          // empty shell.
+          if (err?.status === 404) {
+            localStorage.removeItem('companyId');
+            setCompanyId(null);
+            setCompanyName('My Business');
+          }
         });
     }
   }, [token, companyId]);
@@ -182,7 +190,14 @@ export const App: React.FC = () => {
           setUseCompanyBranding(settings?.use_company_branding === 1);
           setAccountType(settings?.account_type || 'company');
         })
-        .catch(err => console.error(err));
+        .catch((err: any) => {
+          console.error(err);
+          if (err?.status === 404) {
+            localStorage.removeItem('companyId');
+            setCompanyId(null);
+            setCompanyName('My Business');
+          }
+        });
     }
   };
 

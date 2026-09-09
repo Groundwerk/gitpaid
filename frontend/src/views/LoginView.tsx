@@ -14,11 +14,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [allowBypass, setAllowBypass] = useState(false);
   const [clientId, setClientId] = useState<string | null>(null);
-
+  const [configStatus, setConfigStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [configAttempt, setConfigAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-
     const fetchConfig = async () => {
+      setConfigStatus('loading');
       try {
         const configRes = await fetch(`${API_BASE}/auth/config`);
         if (!configRes.ok) throw new Error('Failed to load auth config');
@@ -26,9 +27,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
         if (active) {
           setClientId(configData.clientId);
           setAllowBypass(configData.allowMockLogin && import.meta.env.VITE_ALLOW_BYPASS === 'true');
+          setConfigStatus('ready');
         }
       } catch (err) {
         console.error('Failed to load OAuth config from backend:', err);
+        if (active) setConfigStatus('error');
       }
     };
 
@@ -37,7 +40,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
     return () => {
       active = false;
     };
-  }, []);
+  }, [configAttempt]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -133,6 +136,25 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <div key="login-form-container" className="w-full flex flex-col items-center gap-6">
             {/* Google Identity Services Render Target */}
             <div id="google-signin-button" className="min-h-[40px] flex items-center justify-center"></div>
+            {configStatus === 'loading' && (
+              <div className="flex flex-col items-center gap-3 py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
+                <p className="text-xs text-on-surface-variant font-medium">Connecting to server...</p>
+              </div>
+            )}
+
+            {configStatus === 'error' && (
+              <div className="w-full flex flex-col items-center gap-3 py-4">
+                <p className="text-xs text-error font-semibold text-center">Cannot reach the server. Start the backend and try again.</p>
+                <button
+                  type="button"
+                  onClick={() => setConfigAttempt(n => n + 1)}
+                  className="h-10 px-6 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
 
             {allowBypass && (
               <>

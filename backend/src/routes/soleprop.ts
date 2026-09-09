@@ -8,6 +8,7 @@ import {
   nextQuarterlyAfter,
   ledgerBreakdown,
 } from '../services/solePropEngine';
+import { tablesForYear } from '../services/solePropTaxTables';
 
 const router = new Hono<{
   Bindings: {
@@ -427,6 +428,15 @@ router.put('/profile', async (c) => {
     const pens = num(ytd_pensionable_opening, 'Pensionable earnings');
     const cpp = num(ytd_cpp_opening, 'CPP paid');
     const cpp2 = num(ytd_cpp2_opening, 'CPP2 paid');
+    // Nobody can have paid more than the annual maximums — flag typos
+    // at entry instead of producing nonsense ledger math downstream.
+    const t26 = tablesForYear(2026);
+    if (cpp !== null && cpp > t26.cppSelfMax) {
+      throw new DepositError(400, `CPP paid cannot exceed the 2026 self-employed maximum of $${t26.cppSelfMax.toLocaleString('en-CA')}`);
+    }
+    if (cpp2 !== null && cpp2 > t26.cpp2SelfMax) {
+      throw new DepositError(400, `CPP2 paid cannot exceed the 2026 self-employed maximum of $${t26.cpp2SelfMax.toLocaleString('en-CA')}`);
+    }
     const current = ws.profile;
     await c.env.DB.prepare(
       'UPDATE sole_prop_profile SET business_number = ?, ytd_pensionable_opening = ?, ytd_cpp_opening = ?, ytd_cpp2_opening = ? WHERE company_id = ?'

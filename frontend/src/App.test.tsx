@@ -116,4 +116,21 @@ describe('Frontend App Authentication States', () => {
     });
     expect(localStorage.getItem('token')).toBeNull();
   });
+  it('drops stale company sessions back to onboarding instead of an empty shell', async () => {
+    const { api } = await import('./utils/api');
+    vi.mocked(api.getSettings).mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
+    localStorage.setItem('token', 'mock-jwt-token');
+    localStorage.setItem('email', 'admin@company.com');
+    localStorage.setItem('name', 'Admin User');
+    localStorage.setItem('avatar', '');
+    localStorage.setItem('companyId', '999');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to Gitpaid')).toBeInTheDocument();
+    });
+    expect(localStorage.getItem('companyId')).toBeNull();
+  });
+
 });

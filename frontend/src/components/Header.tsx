@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface HeaderProps {
   title: string;
@@ -23,6 +23,26 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   accountType = 'company'
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
   return (
     <header className="bg-surface border-b border-outline-variant z-30 sticky top-0 flex justify-between items-center h-16 px-4 md:px-8">
       {/* Left: Mobile hamburger & breadcrumbs */}
@@ -75,30 +95,35 @@ export const Header: React.FC<HeaderProps> = ({
             <p className="text-[10px] text-on-surface-variant font-medium">Ontario Account</p>
           </div>
           {onLogout ? (
-            <div className="relative group">
-              <button 
+            <div className="relative" ref={menuRef}>
+              <button
                 title="Account Settings"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(prev => !prev)}
                 className="w-8 h-8 rounded-full overflow-hidden border border-outline-variant hover:opacity-90 transition-opacity flex items-center justify-center bg-surface-container-high"
               >
                 {userAvatar ? (
-                  <img 
-                    alt="User Profile" 
-                    className="w-full h-full object-cover" 
+                  <img
+                    alt="User Profile"
+                    className="w-full h-full object-cover"
                     src={userAvatar}
                   />
                 ) : (
                   <span className="material-symbols-outlined text-[18px] text-primary">person</span>
                 )}
               </button>
-              <div className="absolute right-0 mt-1 w-32 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg py-1 hidden group-hover:block hover:block z-50">
-                <button 
-                  onClick={onLogout}
-                  className="w-full text-left px-4 py-2 text-xs font-bold text-error hover:bg-red-50 transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[14px]">logout</span>
-                  Sign Out
-                </button>
-              </div>
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 mt-1 w-32 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => { setMenuOpen(false); onLogout(); }}
+                    className="w-full text-left px-4 py-2 text-xs font-bold text-error hover:bg-red-50 transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">logout</span>
+                    Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="w-8 h-8 rounded-full overflow-hidden border border-outline-variant flex items-center justify-center bg-surface-container-high">
