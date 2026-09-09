@@ -1,4 +1,4 @@
-import { tablesForYear, type Bracket } from './solePropTaxTables';
+import { tablesForYear, type Bracket, type SolePropTaxTables } from './solePropTaxTables';
 
 export interface SolePropInputs {
   cumulativeCad: number;
@@ -35,25 +35,67 @@ function progressiveTax(income: number, brackets: Bracket[]): number {
   return tax;
 }
 
+interface CumulativeOwed { fed: number; prov: number; cpp: number; cpp2: number; }
+
+function cumulativeObligations(cumulativeCad: number, ytdPensionableOpening: number, t: SolePropTaxTables): CumulativeOwed {
+  const fedTaxable = Math.max(0, cumulativeCad - t.fedBPA);
+  const provTaxable = Math.max(0, cumulativeCad - t.provCredit);
+  const totalPensionable = ytdPensionableOpening + cumulativeCad;
+  const contributory = Math.max(0, Math.min(totalPensionable, t.ympe) - t.ybe);
+  const band = Math.max(0, Math.min(totalPensionable, t.yampe) - t.ympe);
+  return {
+    fed: progressiveTax(fedTaxable, t.federalBrackets),
+    prov: progressiveTax(provTaxable, t.ontarioBrackets),
+    cpp: Math.min(round2(contributory * t.cppSelfRate), t.cppSelfMax),
+    cpp2: Math.min(round2(band * t.cpp2SelfRate), t.cpp2SelfMax),
+  };
+}
+
 export function calculateSolePropObligations(i: SolePropInputs): SolePropOutputs {
   const t = tablesForYear(i.taxYear);
-  const fedTaxable = Math.max(0, i.cumulativeCad - t.fedBPA);
-  const provTaxable = Math.max(0, i.cumulativeCad - t.provCredit);
-  const cumTax = round2(
-    progressiveTax(fedTaxable, t.federalBrackets) +
-    progressiveTax(provTaxable, t.ontarioBrackets)
-  );
-  const totalPensionable = i.ytdPensionableOpening + i.cumulativeCad;
-  const contributory = Math.max(0, Math.min(totalPensionable, t.ympe) - t.ybe);
-  const cumCpp = Math.min(round2(contributory * t.cppSelfRate), t.cppSelfMax);
-  const band = Math.max(0, Math.min(totalPensionable, t.yampe) - t.ympe);
-  const cumCpp2 = Math.min(round2(band * t.cpp2SelfRate), t.cpp2SelfMax);
+  const cum = cumulativeObligations(i.cumulativeCad, i.ytdPensionableOpening, t);
+  const cumTax = round2(cum.fed + cum.prov);
   const incomeTax = Math.max(0, round2(cumTax - i.priorTax));
-  const cpp = Math.max(0, round2(cumCpp - i.ytdCppOpening - i.priorCpp));
-  const cpp2 = Math.max(0, round2(cumCpp2 - i.ytdCpp2Opening - i.priorCpp2));
+  const cpp = Math.max(0, round2(cum.cpp - i.ytdCppOpening - i.priorCpp));
+  const cpp2 = Math.max(0, round2(cum.cpp2 - i.ytdCpp2Opening - i.priorCpp2));
   return { incomeTax, cpp, cpp2, total: round2(incomeTax + cpp + cpp2) };
 }
 
+export interface DepositSlice {
+  cumulativeBefore: number;
+  cumulativeAfter: number;
+  fedTax: number;
+  provTax: number;
+  cppRoomAfter: number;
+}
+
+// Marginal breakdown per deposit in chronological order: which cumulative
+// dollars each row covers and the federal/provincial split behind its share.
+// fed+prov always sums to the row's stored income-tax share.
+export function ledgerBreakdown(
+  cads: { cad: number; date: string }[],
+  openings: { ytdPensionableOpening: number; ytdCppOpening: number }
+): DepositSlice[] {
+  let running = 0;
+  return cads.map(({ cad, date }) => {
+    const t = tablesForYear(Number(date.slice(0, 4)));
+    const before = cumulativeObligations(running, openings.ytdPensionableOpening, t);
+    const afterCum = round2(running + cad);
+    const after = cumulativeObligations(afterCum, openings.ytdPensionableOpening, t);
+    const fedTax = round2(after.fed - before.fed);
+    const taxDelta = round2(round2(after.fed + after.prov) - round2(before.fed + before.prov));
+    const cppRoomAfter = round2(Math.max(0, t.cppSelfMax - openings.ytdCppOpening - after.cpp));
+    const slice = {
+      cumulativeBefore: running,
+      cumulativeAfter: afterCum,
+      fedTax,
+      provTax: round2(taxDelta - fedTax),
+      cppRoomAfter,
+    };
+    running = afterCum;
+    return slice;
+  });
+}
 export interface InstalmentRow { tax_year: number; due_date: string; kind: 'annual' | 'quarterly'; }
 export interface AllocatableDeposit {
   received_date: string;

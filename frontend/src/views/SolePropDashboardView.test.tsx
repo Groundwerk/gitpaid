@@ -109,6 +109,26 @@ describe('SolePropDashboardView', () => {
     await waitFor(() => expect(api.setWiseAutoSync).toHaveBeenCalledWith(true));
   });
 
+  it('expands a marginal-tax explanation per deposit', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      deposits: [
+        {
+          id: 7, received_date: '2026-08-31', foreign_amount: 13541.67, currency: 'USD',
+          fx_rate: 1.3888, fx_date_used: '2026-08-31', cad_amount: 18803.96,
+          tax_owed: 3582.16, cpp_owed: 0, cpp2_owed: 0, note: null, voided: 0,
+          breakdown: {
+            cumulativeBefore: 28183.61, cumulativeAfter: 46987.57,
+            fedTax: 2632.55, provTax: 949.61, cppRoomAfter: 0,
+          },
+        },
+      ],
+    });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /why is tax/i }));
+    expect(await screen.findByText(/covers dollars/)).toBeInTheDocument();
+    expect(screen.getByText(/19\.1% marginal/)).toBeInTheDocument();
+  });
   it('toggles daily auto-sync once an employer exists', async () => {
     vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
     vi.mocked(api.getWisePreview).mockResolvedValue({

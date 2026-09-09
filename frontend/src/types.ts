@@ -46,6 +46,14 @@ export interface SolePropProfile {
   instalment_mode: string;
 }
 
+export interface SolePropDepositBreakdown {
+  cumulativeBefore: number;
+  cumulativeAfter: number;
+  fedTax: number;
+  provTax: number;
+  cppRoomAfter: number;
+}
+
 export interface SolePropDeposit {
   id: number;
   received_date: string;
@@ -59,6 +67,7 @@ export interface SolePropDeposit {
   cpp2_owed: number;
   note: string | null;
   voided: number;
+  breakdown?: SolePropDepositBreakdown | null;
 }
 
 export interface SolePropInstalment {

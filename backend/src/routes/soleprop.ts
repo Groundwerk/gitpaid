@@ -6,6 +6,7 @@ import {
   allocateToInstalments,
   gstStatus,
   nextQuarterlyAfter,
+  ledgerBreakdown,
 } from '../services/solePropEngine';
 
 const router = new Hono<{
@@ -74,14 +75,22 @@ async function buildOverview(db: any, companyId: number, profile: any) {
     deposits.map((d) => ({ received_date: d.received_date, cad_amount: d.cad_amount, voided: 0 })),
     todayStr()
   );
+  const slices = ledgerBreakdown(
+    deposits.map((d) => ({ cad: d.cad_amount, date: d.received_date })),
+    {
+      ytdPensionableOpening: profile.ytd_pensionable_opening ?? 0,
+      ytdCppOpening: profile.ytd_cpp_opening ?? 0,
+    }
+  );
   return {
     profile,
     totals,
-    deposits: deposits.map((d) => ({
+    deposits: deposits.map((d, idx) => ({
       id: d.id, received_date: d.received_date, foreign_amount: d.foreign_amount,
       currency: d.currency, fx_rate: d.fx_rate, fx_date_used: d.fx_date_used,
       cad_amount: d.cad_amount, tax_owed: d.tax_owed, cpp_owed: d.cpp_owed,
       cpp2_owed: d.cpp2_owed, note: d.note, voided: d.voided,
+      breakdown: slices[idx] ?? null,
     })),
     upcoming: instRes?.results ?? [],
     gst: { ...gst, hasBN: !!profile.business_number },

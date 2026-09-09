@@ -72,7 +72,7 @@ describe('calculateSolePropObligations', () => {
     expect(out.total).toBe(0);
   });
 });
-import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter } from './solePropEngine';
+import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter, ledgerBreakdown } from './solePropEngine';
 
 describe('buildInstalmentSchedule', () => {
   it('gives an August 2026 start an annual row then CRA quarterly rows', () => {
@@ -162,5 +162,30 @@ describe('allocateToInstalments fallback', () => {
       ]
     );
     expect(alloc['2027-12-15']).toEqual({ tax: 50, cpp: 0, cpp2: 0, total: 50 });
+  });
+});
+
+describe('ledgerBreakdown', () => {
+  it('splits each row into marginal fed/prov shares over its cumulative window', () => {
+    const rows = ledgerBreakdown(
+      [{ cad: 28183.61, date: '2026-09-01' }, { cad: 18803.96, date: '2026-10-01' }],
+      { ytdPensionableOpening: 0, ytdCppOpening: 0 }
+    );
+    expect(rows).toHaveLength(2);
+    // Ontario raw is 767.33, but prov is tied so fed+prov equals the stored
+    // share exactly (2409.75): 2409.75 - 1642.43 = 767.32
+    expect(rows[0]).toMatchObject({
+      cumulativeBefore: 0, cumulativeAfter: 28183.61, fedTax: 1642.43, provTax: 767.32,
+    });
+    // Second dollars fully exposed: 18803.96 x14% = 2632.55 fed;
+    // 18803.96 x5.05% = 949.60 prov; fed+prov ties to the stored share
+    expect(rows[1]).toMatchObject({
+      cumulativeBefore: 28183.61, cumulativeAfter: 46987.57, fedTax: 2632.55, provTax: 949.61,
+    });
+    expect(rows[0].fedTax + rows[0].provTax).toBeCloseTo(2409.75, 2);
+    expect(rows[1].fedTax + rows[1].provTax).toBeCloseTo(3582.16, 2);
+    // CPP room drains as pensionable accumulates
+    expect(rows[0].cppRoomAfter).toBeLessThan(8460.9);
+    expect(rows[1].cppRoomAfter).toBeLessThan(rows[0].cppRoomAfter);
   });
 });
