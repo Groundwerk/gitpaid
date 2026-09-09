@@ -29,7 +29,7 @@ describe('SolePropSettingsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
-    vi.mocked(api.getSettings).mockResolvedValue(null);
+    vi.mocked(api.getSettings).mockRejectedValue(new Error('no settings'));
     vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
   });
   it('prefills the saved legal name', async () => {
