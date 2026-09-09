@@ -26,8 +26,12 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.getSolePropOverview();
+        const [data, settings] = await Promise.all([
+          api.getSolePropOverview(),
+          api.getSettings().catch(() => null),
+        ]);
         setOverview(data);
+        if (settings?.legal_name) setName(settings.legal_name);
         setWise(await api.getWiseStatus());
       } catch (error: any) {
         console.error('Failed to load sole-prop settings:', error);

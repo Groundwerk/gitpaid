@@ -5,6 +5,7 @@ import { api } from '../utils/api';
 
 vi.mock('../utils/api', () => ({ api: {
   getSolePropOverview: vi.fn(),
+  getSettings: vi.fn(),
   updateSettings: vi.fn(),
   updateSolePropProfile: vi.fn(),
   getWiseStatus: vi.fn(),
@@ -23,12 +24,18 @@ const overview: any = {
   upcoming: [],
   gst: { rollingTotal: 0, crossed: false, crossingDate: null, deadline: null, hasBN: false },
 };
-
 describe('SolePropSettingsView', () => {
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
+    vi.mocked(api.getSettings).mockResolvedValue(null);
     vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
+  });
+  it('prefills the saved legal name', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({ legal_name: 'Jane Doe' } as any);
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
   });
 
   it('shows profile fields with no payroll sections', async () => {
