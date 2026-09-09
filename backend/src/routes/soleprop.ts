@@ -404,19 +404,39 @@ router.put('/profile', async (c) => {
     if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
     const ws = await loadWorkspace(c.env.DB, companyId);
     if ('error' in ws) return c.json({ error: ws.error }, ws.status);
-    const { business_number } = await c.req.json();
+    const { business_number, ytd_pensionable_opening, ytd_cpp_opening, ytd_cpp2_opening } = await c.req.json();
     const digits = String(business_number ?? '').replace(/\D/g, '');
-    if (digits.length !== 9) {
+    if (business_number !== undefined && business_number !== null && String(business_number).trim() !== '' && digits.length !== 9) {
       return c.json({ error: 'Business number must be 9 digits' }, 400);
     }
+    const num = (v: any, name: string) => {
+      if (v === undefined || v === null || v === '') return null;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) throw new DepositError(400, `${name} must be a non-negative number`);
+      return n;
+    };
+    const pens = num(ytd_pensionable_opening, 'Pensionable earnings');
+    const cpp = num(ytd_cpp_opening, 'CPP paid');
+    const cpp2 = num(ytd_cpp2_opening, 'CPP2 paid');
+    const current = ws.profile;
     await c.env.DB.prepare(
-      'UPDATE sole_prop_profile SET business_number = ? WHERE company_id = ?'
-    ).bind(digits, companyId).run();
-    const profile = await c.env.DB.prepare(
+      'UPDATE sole_prop_profile SET business_number = ?, ytd_pensionable_opening = ?, ytd_cpp_opening = ?, ytd_cpp2_opening = ? WHERE company_id = ?'
+    ).bind(
+      digits.length === 9 ? digits : current.business_number,
+      pens ?? current.ytd_pensionable_opening ?? 0,
+      cpp ?? current.ytd_cpp_opening ?? 0,
+      cpp2 ?? current.ytd_cpp2_opening ?? 0,
+      companyId
+    ).run();
+    const updated = (await c.env.DB.prepare(
       'SELECT * FROM sole_prop_profile WHERE company_id = ?'
-    ).bind(companyId).first();
+    ).bind(companyId).first()) as any;
+    await recomputeDeposits(c.env.DB, companyId, updated);
+    await reallocate(c.env.DB, companyId, updated);
+    const profile = updated;
     return c.json({ profile });
   } catch (error: any) {
+    if (error instanceof DepositError) return c.json({ error: error.message }, error.status as any);
     return c.json({ error: error.message }, 500);
   }
 });

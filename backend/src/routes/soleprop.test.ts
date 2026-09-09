@@ -108,6 +108,13 @@ const mockDb = {
           if (d) { d.tax_owed = args[0]; d.cpp_owed = args[1]; d.cpp2_owed = args[2]; }
           return { success: true, meta: {} };
         }
+        if (sql.includes('UPDATE sole_prop_profile SET')) {
+          state.profile.business_number = args[0];
+          state.profile.ytd_pensionable_opening = args[1];
+          state.profile.ytd_cpp_opening = args[2];
+          state.profile.ytd_cpp2_opening = args[3];
+          return { success: true, meta: {} };
+        }
         if (sql.includes('SET paid = 1')) {
           const r = state.instalments.find((x) => x.id === args[1] && x.company_id === args[2]);
           if (r) { r.paid = 1; r.paid_date = args[0]; }
@@ -340,6 +347,32 @@ describe('soleprop routes', () => {
     expect(state.profile.ytd_cpp_opening).toBe(8460.9);
     expect(state.profile.business_number).toBeNull();
   });
+  it('updates openings and recomputes live shares', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    // Max out CPP openings: the deposit's CPP share must vanish on replay
+    const maxed = await app.request('/api/soleprop/profile', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ytd_pensionable_opening: 190000, ytd_cpp_opening: 8460.9, ytd_cpp2_opening: 832 }),
+    }, testEnv);
+    expect(maxed.status).toBe(200);
+    expect(state.profile.ytd_cpp_opening).toBe(8460.9);
+    let overview = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    expect(((await overview.json()) as any).totals.cpp).toBe(0);
+    // Correct back to zero openings: CPP (6900-3500)=3400 x11.9% = 404.60
+    await app.request('/api/soleprop/profile', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ytd_pensionable_opening: 0, ytd_cpp_opening: 0, ytd_cpp2_opening: 0 }),
+    }, testEnv);
+    overview = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const json = await overview.json() as any;
+    expect(json.totals.cpp).toBe(404.6);
+    expect(json.totals.tax).toBe(0);
+  });
+
   it('shows only the annual row until it is paid', async () => {
     const res = await app.request('/api/soleprop/deposits', {
       method: 'POST',

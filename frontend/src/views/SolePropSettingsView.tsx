@@ -20,6 +20,8 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
   const [wise, setWise] = useState<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null } | null>(null);
   const [wiseToken, setWiseToken] = useState('');
   const [wiseBusy, setWiseBusy] = useState(false);
+  const [openings, setOpenings] = useState({ pens: '', cpp: '', cpp2: '' });
+  const [savingOpenings, setSavingOpenings] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -72,6 +74,46 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
       triggerToast(error.message || 'Failed to save Business Number.', 'error');
     } finally {
       setSavingBn(false);
+    }
+  };
+
+  const handleSaveOpenings = async () => {
+    const toNum = (v: string, label: string): number | undefined => {
+      if (v.trim() === '') return undefined;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) {
+        triggerToast(`${label} must be a non-negative number.`, 'error');
+        throw new Error('invalid');
+      }
+      return n;
+    };
+    let payload: { ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number };
+    try {
+      payload = {
+        ytd_pensionable_opening: toNum(openings.pens, 'Pensionable earnings'),
+        ytd_cpp_opening: toNum(openings.cpp, 'CPP paid'),
+        ytd_cpp2_opening: toNum(openings.cpp2, 'CPP2 paid'),
+      };
+    } catch {
+      return;
+    }
+    if (payload.ytd_pensionable_opening === undefined && payload.ytd_cpp_opening === undefined && payload.ytd_cpp2_opening === undefined) {
+      triggerToast('Enter at least one value to update.', 'error');
+      return;
+    }
+    try {
+      setSavingOpenings(true);
+      const res = await api.updateSolePropProfile(payload);
+      setOverview(prev => (prev ? { ...prev, profile: res.profile } : prev));
+      const refreshed = await api.getSolePropOverview();
+      setOverview(refreshed);
+      setOpenings({ pens: '', cpp: '', cpp2: '' });
+      triggerToast('Openings saved — ledger recomputed.', 'success');
+      if (onSettingsUpdate) onSettingsUpdate();
+    } catch (error: any) {
+      triggerToast(error.message || 'Failed to save openings.', 'error');
+    } finally {
+      setSavingOpenings(false);
     }
   };
 
@@ -135,7 +177,6 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
   }
 
   const p = overview.profile;
-  const money = (v: number) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(v);
 
   return (
     <div className="flex flex-col gap-6">
@@ -195,23 +236,37 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">
         <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2">2026 Opening Balances</h2>
-        <div className="grid sm:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Pensionable earnings</p>
-            <p className="font-semibold mt-0.5">{money(p.ytd_pensionable_opening)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">CPP paid</p>
-            <p className="font-semibold mt-0.5">{money(p.ytd_cpp_opening)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">CPP2 paid</p>
-            <p className="font-semibold mt-0.5">{money(p.ytd_cpp2_opening)}</p>
-          </div>
+        <div className="grid sm:grid-cols-3 gap-4">
+          {([
+            ['Pensionable earnings ($)', 'pens', overview.profile.ytd_pensionable_opening],
+            ['CPP paid ($)', 'cpp', overview.profile.ytd_cpp_opening],
+            ['CPP2 paid ($)', 'cpp2', overview.profile.ytd_cpp2_opening],
+          ] as const).map(([label, key, current]) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor={`sps-${key}`}>
+                {label}
+              </label>
+              <input
+                id={`sps-${key}`} type="number" min="0" step="0.01"
+                value={openings[key]} placeholder={String(current ?? 0)}
+                onChange={(e) => setOpenings(prev => ({ ...prev, [key]: e.target.value }))}
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+              />
+            </div>
+          ))}
         </div>
         <p className="text-xs text-on-surface-variant">
-          Locked after onboarding — every CPP calculation builds on these figures.
+          Amounts earned and CPP paid outside Gitpaid this year. Saving recomputes every deposit and instalment.
+          Leave blank to keep the current values.
         </p>
+        <div>
+          <button
+            type="button" onClick={handleSaveOpenings} disabled={savingOpenings}
+            className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            Save openings
+          </button>
+        </div>
       </div>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">

@@ -71,4 +71,15 @@ describe('SolePropSettingsView', () => {
     await waitFor(() => expect(api.testWiseToken).toHaveBeenCalledTimes(1));
   });
 
+  it('saves corrected openings and refreshes the ledger', async () => {
+    vi.mocked(api.updateSolePropProfile).mockResolvedValue({ profile: { ...overview.profile, ytd_cpp_opening: 8460.9 } });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByLabelText(/CPP paid \(\$\)/i), { target: { value: '8460.9' } });
+    fireEvent.click(screen.getByRole('button', { name: /save openings/i }));
+    await waitFor(() => expect(api.updateSolePropProfile).toHaveBeenCalledWith(
+      { ytd_pensionable_opening: undefined, ytd_cpp_opening: 8460.9, ytd_cpp2_opening: undefined }
+    ));
+    expect(api.getSolePropOverview).toHaveBeenCalledTimes(2);
+  });
+
 });

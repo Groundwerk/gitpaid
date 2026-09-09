@@ -60,8 +60,8 @@ export const api = {
   deleteEmployee: (id: number) => 
     request<{ message: string }>(`/employees/${id}`, { method: 'DELETE' }),
 
-  // Payroll Runs
-  getPayrollRuns: () => request<PayrollRun[]>('/payroll-runs'),
+  updateSolePropProfile: (profile: { business_number?: string; ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number }) =>
+    request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) }),
   getWiseStatus: () =>
     request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/status'),
   saveWiseToken: (data: { token: string; label?: string }) =>
@@ -80,6 +80,8 @@ export const api = {
     request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/run-now', { method: 'POST' }),
   setWiseEmployer: (data: { key: string; label?: string }) =>
     request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/employer', { method: 'PUT', body: JSON.stringify(data) }),
+  // Payroll Runs
+  getPayrollRuns: () => request<PayrollRun[]>('/payroll-runs'),
   getPayrollRunDetails: (id: number) => 
     request<PayrollRun & { employees: any[] }>(`/payroll-runs/${id}`),
   calculatePayrollPreview: (employeesInput: any[]) => 
@@ -252,7 +254,5 @@ export const api = {
     request<{ overview: SolePropOverview }>(`/soleprop/deposits/${id}/void`, { method: 'POST' }),
   paySolePropInstalment: (id: number, paid_date?: string) =>
     request<{ instalment: SolePropInstalment }>(`/soleprop/instalments/${id}/pay`, { method: 'POST', body: JSON.stringify({ paid_date }) }),
-  updateSolePropProfile: (profile: { business_number: string }) =>
-    request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) })
 };
 export default api;
