@@ -3,8 +3,8 @@ name: Sync from upstream
 # Manual deploy-sync for Cloudflare-button clones of this repo.
 # Clones inherit this file, so each deploy can pull upstream on demand:
 # Actions tab -> "Sync from upstream" -> "Run workflow".
-# Fast-forward only: if the deploy repo ever diverges (local commits),
-# the run fails red instead of merging - a human then intervenes.
+# Merges (fast-forwarding when clean); on conflict the clone's side wins
+# automatically, so its production config is never clobbered.
 
 on:
   workflow_dispatch:
@@ -24,5 +24,5 @@ jobs:
         run: |
           git remote add upstream https://github.com/Groundwerk/gitpaid.git
           git fetch upstream
-          git merge --ff-only upstream/main
+          git merge --no-edit -X ours upstream/main
           git push origin main
