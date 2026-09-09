@@ -507,7 +507,7 @@ describe('soleprop routes', () => {
   it('reports disconnected Wise status initially', async () => {
     const res = await app.request('/api/soleprop/wise/status', { headers: await authHeaders() }, testEnv);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ connected: false, last4: null, label: null, updated_at: null });
+    expect(await res.json()).toEqual({ connected: false, last4: null, label: null, updated_at: null, autoSync: false, employer: null });
   });
 
   it('saves a Wise token only after live validation and never returns it', async () => {
@@ -518,7 +518,7 @@ describe('soleprop routes', () => {
     }, testEnv);
     expect(res.status).toBe(200);
     const json = await res.json() as any;
-    expect(json).toEqual({ connected: true, last4: 'c123', label: 'Personal', updated_at: expect.any(String) });
+    expect(json).toEqual({ connected: true, last4: 'c123', label: 'Personal', updated_at: expect.any(String), autoSync: false, employer: null });
     // Stored ciphertext must not contain the plaintext token
     expect(state.wiseToken.encrypted_token).not.toContain('live-test-token-abc123');
     expect(JSON.stringify(json)).not.toContain('live-test-token-abc123');

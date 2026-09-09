@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SolePropOverview } from '../types';
+import type { SolePropOverview, WiseStatus } from '../types';
 import { api } from '../utils/api';
 
 interface SolePropDashboardViewProps {
@@ -113,6 +113,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
   }
   const [wiseConnected, setWiseConnected] = useState<boolean | null>(null);
   const [wisePreview, setWisePreview] = useState<{ employer: { key: string; label: string } | null; autoSync: boolean; candidates: WiseCandidate[] } | null>(null);
+  const [wise, setWise] = useState<WiseStatus | null>(null);
   const [wiseSelected, setWiseSelected] = useState<string[]>([]);
   const [wiseEmployerPick, setWiseEmployerPick] = useState('');
   const [wiseBusy, setWiseBusy] = useState(false);
@@ -123,6 +124,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     try {
       const status = await api.getWiseStatus();
       setWiseConnected(status.connected);
+      setWise(status);
     } catch {
       setWiseConnected(false);
     }
@@ -187,6 +189,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
       await api.setWiseAutoSync(next);
       triggerToast(next ? 'Daily auto-sync enabled.' : 'Auto-sync disabled.', 'success');
       await handleSyncPreview();
+      await refreshWiseStatus();
     } catch (error: any) {
       triggerToast(error.message || 'Failed to update auto-sync.', 'error');
     } finally {
@@ -360,7 +363,26 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
 
       {wiseConnected === true && (
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2 mb-4">Wise sync</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-2 mb-4">
+          <h2 className="text-sm font-bold text-primary uppercase tracking-wider">Wise sync</h2>
+          {(wisePreview?.autoSync ?? wise?.autoSync ?? false) ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="#16a34a" />
+                <path d="m8 12.5 2.5 2.5L16 9.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Auto-Sync Enabled
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="#dc2626" />
+                <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              Auto-Sync Not Enabled
+            </span>
+          )}
+        </div>
         {!wisePreview && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-on-surface-variant">Pull the last 90 days of incoming Wise transfers and pick what to import.</p>

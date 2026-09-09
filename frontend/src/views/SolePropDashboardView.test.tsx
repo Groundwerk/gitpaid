@@ -30,7 +30,7 @@ describe('SolePropDashboardView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null, autoSync: false, employer: null });
   });
 
   it('shows the blocking GST banner until a BN is saved', async () => {
@@ -72,7 +72,7 @@ describe('SolePropDashboardView', () => {
   });
 
   it('lists preview candidates and imports the selection with an employer', async () => {
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: false, employer: null });
     const preview = {
       employer: null,
       autoSync: false,
@@ -96,7 +96,7 @@ describe('SolePropDashboardView', () => {
   });
 
   it('saves a locally picked employer before enabling auto-sync', async () => {
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: false, employer: null });
     vi.mocked(api.getWisePreview).mockResolvedValue({
       employer: null, autoSync: false,
       candidates: [
@@ -134,7 +134,7 @@ describe('SolePropDashboardView', () => {
     expect(screen.getByText(/19\.1% marginal/)).toBeInTheDocument();
   });
   it('toggles daily auto-sync once an employer exists', async () => {
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x' });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: false, employer: null });
     vi.mocked(api.getWisePreview).mockResolvedValue({
       employer: { key: 'deel inc', label: 'Deel Inc' }, autoSync: false, candidates: [],
     });
@@ -142,6 +142,18 @@ describe('SolePropDashboardView', () => {
     fireEvent.click(await screen.findByRole('button', { name: /sync from wise/i }));
     fireEvent.click(await screen.findByLabelText(/auto-sync daily/i));
     await waitFor(() => expect(api.setWiseAutoSync).toHaveBeenCalledWith(true));
+  });
+
+  it('shows the auto-sync pill without expanding the box', async () => {
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: true, employer: { key: 'deel inc', label: 'Deel Inc' } });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    expect(await screen.findByText(/auto-sync enabled/i)).toBeInTheDocument();
+  });
+
+  it('shows a not-enabled pill when auto-sync is off', async () => {
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: false, employer: null });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    expect(await screen.findByText(/auto-sync not enabled/i)).toBeInTheDocument();
   });
 
 });

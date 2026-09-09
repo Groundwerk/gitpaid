@@ -83,6 +83,15 @@ export interface SolePropInstalment {
   paid_date: string | null;
 }
 
+export interface WiseStatus {
+  connected: boolean;
+  last4: string | null;
+  label: string | null;
+  updated_at: string | null;
+  autoSync: boolean;
+  employer: { key: string; label: string } | null;
+}
+
 export interface SolePropOverview {
   profile: SolePropProfile;
   totals: { cad: number; tax: number; cpp: number; cpp2: number };

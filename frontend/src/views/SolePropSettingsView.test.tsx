@@ -30,7 +30,7 @@ describe('SolePropSettingsView', () => {
     vi.clearAllMocks();
     vi.mocked(api.getSolePropOverview).mockResolvedValue(overview);
     vi.mocked(api.getSettings).mockRejectedValue(new Error('no settings'));
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: false, last4: null, label: null, updated_at: null, autoSync: false, employer: null });
   });
   it('prefills the saved legal name', async () => {
     vi.mocked(api.getSettings).mockResolvedValue({ legal_name: 'Jane Doe' } as any);
@@ -61,7 +61,7 @@ describe('SolePropSettingsView', () => {
   });
 
   it('saves the token without ever displaying it', async () => {
-    vi.mocked(api.saveWiseToken).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: '2026-09-08' });
+    vi.mocked(api.saveWiseToken).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: '2026-09-08', autoSync: false, employer: null });
     render(<SolePropSettingsView triggerToast={() => {}} />);
     fireEvent.change(await screen.findByPlaceholderText(/paste token/i), { target: { value: 'live-test-token-abc123' } });
     fireEvent.click(screen.getByRole('button', { name: /save token/i }));
@@ -71,7 +71,7 @@ describe('SolePropSettingsView', () => {
   });
 
   it('shows test and remove actions when connected', async () => {
-    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: 'Personal', updated_at: '2026-09-08' });
+    vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: 'Personal', updated_at: '2026-09-08', autoSync: false, employer: null });
     vi.mocked(api.testWiseToken).mockResolvedValue({ ok: true, profiles: 1 });
     render(<SolePropSettingsView triggerToast={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: /test connection/i }));
