@@ -125,8 +125,9 @@ describe('SolePropDashboardView', () => {
       ],
     });
     render(<SolePropDashboardView triggerToast={() => {}} />);
+    const row = (await screen.findByText('2026-08-31')).closest('tr') as HTMLElement;
     expect(screen.queryByText(/covers dollars/)).toBeNull();
-    fireEvent.mouseEnter(screen.getByText('2026-08-31').closest('tr') as HTMLElement);
+    fireEvent.mouseEnter(row);
     expect(await screen.findByText(/covers dollars/)).toBeInTheDocument();
     expect(screen.getByText(/19\.1% marginal/)).toBeInTheDocument();
   });
