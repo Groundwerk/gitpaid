@@ -4,6 +4,12 @@ compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 workers_dev = true
 
+# Workers Observability: streams console output and invocation records
+# to the Cloudflare dashboard (Workers > Observability > Logs).
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [vars]
 
 # Serve the frontend SPA from the worker

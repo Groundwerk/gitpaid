@@ -20,6 +20,22 @@ const app = new Hono<{
   };
 }>();
 
+// Structured request log: streams into Workers Logs (Observability)
+// once [observability.logs] is enabled in wrangler.toml. One line per
+// request keeps volume predictable; no bodies, tokens, or PII.
+app.use('*', async (c, next) => {
+  const start = Date.now();
+  await next();
+  const status = c.res.status;
+  console.log(JSON.stringify({
+    msg: 'request',
+    method: c.req.method,
+    path: c.req.path,
+    status,
+    ms: Date.now() - start,
+  }));
+});
+
 // Global CORS Configuration
 app.use('*', cors({
   origin: '*', // For local development. Can be locked down for production.
