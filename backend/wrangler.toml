@@ -4,6 +4,12 @@ compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 workers_dev = true
 
+# Workers Observability: streams console output and invocation records
+# to the Cloudflare dashboard (Workers > Observability > Logs).
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Daily Wise auto-sync: 12:00 UTC (~8am EDT). Only workspaces with
 # auto-sync enabled and an employer selected are touched.
 [triggers]
