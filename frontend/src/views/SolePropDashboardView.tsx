@@ -556,7 +556,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                       const id = d.id;
                       hoverTimer.current = window.setTimeout(() => {
                         setBreakdownFor(id);
-                        setTipPos({ top: rect.top + window.scrollY, left: rect.right + window.scrollX + 8 });
+                        setTipPos({ top: rect.top, left: rect.right + 8 });
                       }, 450);
                     }}
                     onMouseLeave={() => {
