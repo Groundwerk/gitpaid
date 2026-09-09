@@ -64,9 +64,11 @@ describe('SolePropDashboardView', () => {
     expect(details?.textContent).not.toContain('2027-03-15');
   });
 
-  it('prompts to connect Wise when no token is saved', async () => {
+  it('hides the Wise sync card when no token is saved', async () => {
     render(<SolePropDashboardView triggerToast={() => {}} />);
-    expect(await screen.findByText(/Connect Wise in Settings/i)).toBeInTheDocument();
+    await screen.findByText(/Sole Proprietor Ledger/i);
+    expect(screen.queryByText(/Wise sync/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /sync from wise/i })).toBeNull();
   });
 
   it('lists preview candidates and imports the selection with an employer', async () => {

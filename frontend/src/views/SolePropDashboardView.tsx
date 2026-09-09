@@ -358,12 +358,10 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
         ))}
       </div>
 
+      {wiseConnected === true && (
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">
         <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2 mb-4">Wise sync</h2>
-        {wiseConnected === false && (
-          <p className="text-sm text-on-surface-variant">Connect Wise in Settings to import deposits automatically.</p>
-        )}
-        {wiseConnected === true && !wisePreview && (
+        {!wisePreview && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-on-surface-variant">Pull the last 90 days of incoming Wise transfers and pick what to import.</p>
             <div>
@@ -376,7 +374,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             </div>
           </div>
         )}
-        {wiseConnected === true && wisePreview && (
+        {wisePreview && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -465,6 +463,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
           </div>
         )}
       </div>
+      )}
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm">
         <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2 mb-4">Record Deposit</h2>
