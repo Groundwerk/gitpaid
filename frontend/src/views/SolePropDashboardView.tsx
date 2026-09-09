@@ -581,7 +581,11 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                         {formatCurrency(d.cpp_owed)}
                       </span>
                     </td>
-                    <td className="py-2 pr-3">{formatCurrency(d.cpp2_owed)}</td>
+                    <td className="py-2 pr-3" onMouseEnter={(e) => armBreakdown(e, d)}>
+                      <span className="underline decoration-dotted underline-offset-4 hover:text-primary hover:decoration-solid transition-colors cursor-help">
+                        {formatCurrency(d.cpp2_owed)}
+                      </span>
+                    </td>
                     <td className="py-2">
                       <button
                         type="button" onClick={() => handleVoid(d.id)}
