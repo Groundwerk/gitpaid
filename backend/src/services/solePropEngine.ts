@@ -60,6 +60,19 @@ export function calculateSolePropObligations(i: SolePropInputs): SolePropOutputs
   const cpp2 = Math.max(0, round2(cum.cpp2 - i.ytdCpp2Opening - i.priorCpp2));
   return { incomeTax, cpp, cpp2, total: round2(incomeTax + cpp + cpp2) };
 }
+// Guards YTD opening balances at entry: nobody can have paid more than
+// the annual maximums, so anything above is a typo. Returns an error
+// message, or null when the figures are possible.
+export function validateOpenings(pens: number | null, cpp: number | null, cpp2: number | null): string | null {
+  const t = tablesForYear(2026);
+  if (cpp !== null && cpp > t.cppSelfMax) {
+    return `CPP paid cannot exceed the 2026 self-employed maximum of $${t.cppSelfMax.toLocaleString('en-CA')}`;
+  }
+  if (cpp2 !== null && cpp2 > t.cpp2SelfMax) {
+    return `CPP2 paid cannot exceed the 2026 self-employed maximum of $${t.cpp2SelfMax.toLocaleString('en-CA')}`;
+  }
+  return null;
+}
 
 export interface DepositSlice {
   cumulativeBefore: number;

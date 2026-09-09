@@ -7,6 +7,7 @@ import {
   gstStatus,
   nextQuarterlyAfter,
   ledgerBreakdown,
+  validateOpenings,
 } from '../services/solePropEngine';
 
 const router = new Hono<{
@@ -427,6 +428,10 @@ router.put('/profile', async (c) => {
     const pens = num(ytd_pensionable_opening, 'Pensionable earnings');
     const cpp = num(ytd_cpp_opening, 'CPP paid');
     const cpp2 = num(ytd_cpp2_opening, 'CPP2 paid');
+    // Nobody can have paid more than the annual maximums — flag typos
+    // at entry instead of producing nonsense ledger math downstream.
+    const openingsError = validateOpenings(pens, cpp, cpp2);
+    if (openingsError) throw new DepositError(400, openingsError);
     const current = ws.profile;
     await c.env.DB.prepare(
       'UPDATE sole_prop_profile SET business_number = ?, ytd_pensionable_opening = ?, ytd_cpp_opening = ?, ytd_cpp2_opening = ? WHERE company_id = ?'
