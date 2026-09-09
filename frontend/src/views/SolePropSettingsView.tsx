@@ -101,6 +101,14 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
       triggerToast('Enter at least one value to update.', 'error');
       return;
     }
+    const liveCount = overview?.deposits.length ?? 0;
+    const paidCount = overview?.upcoming.filter(i => i.paid).length ?? 0;
+    if (liveCount > 0) {
+      const msg = paidCount > 0
+        ? `${paidCount} instalment(s) already marked paid and will stay frozen as history; only unpaid amounts change. Recalculate all ${liveCount} deposit(s)?`
+        : `This recomputes tax/CPP on all ${liveCount} recorded deposit(s). Nothing is paid yet, so nothing is locked in. Continue?`;
+      if (!window.confirm(msg)) return;
+    }
     try {
       setSavingOpenings(true);
       const res = await api.updateSolePropProfile(payload);
