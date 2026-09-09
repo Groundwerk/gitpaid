@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { SolePropOverview } from '../types';
 import { api } from '../utils/api';
 
@@ -116,6 +117,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
   const [wiseEmployerPick, setWiseEmployerPick] = useState('');
   const [wiseBusy, setWiseBusy] = useState(false);
   const [breakdownFor, setBreakdownFor] = useState<number | null>(null);
+  const [tipPos, setTipPos] = useState<{ top: number; left: number } | null>(null);
   const hoverTimer = useRef<number | null>(null);
   const refreshWiseStatus = async () => {
     try {
@@ -548,14 +550,19 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                   <tr
                     key={d.id}
                     className="border-b border-outline-variant last:border-0 hover:bg-surface-container transition-colors"
-                    onMouseEnter={() => {
+                    onMouseEnter={(e) => {
                       if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const id = d.id;
-                      hoverTimer.current = window.setTimeout(() => setBreakdownFor(id), 450);
+                      hoverTimer.current = window.setTimeout(() => {
+                        setBreakdownFor(id);
+                        setTipPos({ top: rect.top + window.scrollY, left: rect.right + window.scrollX + 8 });
+                      }, 450);
                     }}
                     onMouseLeave={() => {
                       if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
                       setBreakdownFor(prev => (prev === d.id ? null : prev));
+                      setTipPos(null);
                     }}
                   >
                     <td className="py-2 pr-3 whitespace-nowrap">{d.received_date}</td>
@@ -581,10 +588,13 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
         )}
         {(() => {
           const hovered = overview.deposits.find(d => d.id === breakdownFor && d.breakdown);
-          if (!hovered?.breakdown) return null;
+          if (!hovered?.breakdown || !tipPos) return null;
           const b = hovered.breakdown;
-          return (
-            <div className="text-xs text-on-surface-variant bg-surface-container rounded-lg p-3 mt-3 flex flex-col gap-1 animate-fade-in">
+          return createPortal(
+            <div
+              className="fixed z-50 w-72 p-3 rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg text-xs text-on-surface-variant font-normal flex flex-col gap-1"
+              style={{ top: Math.min(tipPos.top, window.innerHeight - 180), left: Math.max(8, Math.min(tipPos.left, window.innerWidth - 300)) }}
+            >
               <span>
                 {hovered.received_date} covers dollars {formatCurrency(b.cumulativeBefore)}–{formatCurrency(b.cumulativeAfter)} of
                 your year-to-date income. Earlier dollars filled the low brackets (and the basic personal amount
@@ -595,7 +605,8 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                 (federal {formatCurrency(b.fedTax)} + Ontario {formatCurrency(b.provTax)}).
                 CPP room left after this deposit: {formatCurrency(b.cppRoomAfter)}.
               </span>
-            </div>
+            </div>,
+            document.body
           );
         })()}
       </div>
