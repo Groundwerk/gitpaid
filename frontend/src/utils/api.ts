@@ -1,4 +1,4 @@
-import type { CompanySettings, Employee, PayrollRun } from '../types';
+import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropInstalment, SolePropOverview, SolePropProfile } from '../types';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -47,7 +47,7 @@ export const api = {
 
   // Settings
   getSettings: () => request<CompanySettings>('/settings'),
-  updateSettings: (settings: Partial<CompanySettings>) => 
+  updateSettings: <T extends Partial<CompanySettings>>(settings: T) => 
     request<CompanySettings>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
 
   // Employees
@@ -60,6 +60,26 @@ export const api = {
   deleteEmployee: (id: number) => 
     request<{ message: string }>(`/employees/${id}`, { method: 'DELETE' }),
 
+  updateSolePropProfile: (profile: { business_number?: string; ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number }) =>
+    request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+  getWiseStatus: () =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/status'),
+  saveWiseToken: (data: { token: string; label?: string }) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'POST', body: JSON.stringify(data) }),
+  testWiseToken: () =>
+    request<{ ok: boolean; profiles: number }>('/soleprop/wise/test', { method: 'POST' }),
+  deleteWiseToken: () =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/token', { method: 'DELETE' }),
+  getWisePreview: (days = 90, currency = 'USD') =>
+    request<{ employer: { key: string; label: string } | null; autoSync: boolean; candidates: { key: string; date: string; amount: number; currency: string; sender: string; senderKey: string; reference: string; alreadyImported: boolean }[] }>(`/soleprop/wise/preview?days=${days}&currency=${currency}`),
+  importWiseTransfers: (data: { keys: string[]; employerKey?: string; employerLabel?: string }) =>
+    request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/import', { method: 'POST', body: JSON.stringify(data) }),
+  setWiseAutoSync: (enabled: boolean) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/auto-sync', { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  runWiseSyncNow: () =>
+    request<{ imported: number; overview: SolePropOverview }>('/soleprop/wise/run-now', { method: 'POST' }),
+  setWiseEmployer: (data: { key: string; label?: string }) =>
+    request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null }>('/soleprop/wise/employer', { method: 'PUT', body: JSON.stringify(data) }),
   // Payroll Runs
   getPayrollRuns: () => request<PayrollRun[]>('/payroll-runs'),
   getPayrollRunDetails: (id: number) => 
@@ -220,6 +240,19 @@ export const api = {
   createRemittancePayment: (data: { type: string; payment_date: string; amount: number; period_end: string }) =>
     request<{ id: number; message: string }>('/reports/remittances', { method: 'POST', body: JSON.stringify(data) }),
   deleteRemittancePayment: (id: number) =>
-    request<{ message: string }>(`/reports/remittances/${id}`, { method: 'DELETE' })
+    request<{ message: string }>(`/reports/remittances/${id}`, { method: 'DELETE' }),
+
+  // Sole proprietor
+  getSolePropOverview: () => request<SolePropOverview>('/soleprop/overview'),
+  previewFx: (date: string, currency: string) =>
+    request<{ rate: number; dateUsed: string; currency: string }>(
+      `/soleprop/fx-preview?date=${encodeURIComponent(date)}&currency=${encodeURIComponent(currency)}`
+    ),
+  createSolePropDeposit: (deposit: { received_date: string; foreign_amount: number; currency?: string; fx_rate?: number; note?: string }) =>
+    request<{ deposit: SolePropDeposit; overview: SolePropOverview }>('/soleprop/deposits', { method: 'POST', body: JSON.stringify(deposit) }),
+  voidSolePropDeposit: (id: number) =>
+    request<{ overview: SolePropOverview }>(`/soleprop/deposits/${id}/void`, { method: 'POST' }),
+  paySolePropInstalment: (id: number, paid_date?: string) =>
+    request<{ instalment: SolePropInstalment }>(`/soleprop/instalments/${id}/pay`, { method: 'POST', body: JSON.stringify({ paid_date }) }),
 };
 export default api;

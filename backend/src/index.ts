@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
 import authRouter from './routes/auth';
 import settingsRouter from './routes/settings';
+import solepropRouter from './routes/soleprop';
 import employeesRouter from './routes/employees';
 import payrollRouter from './routes/payroll';
 import reportsRouter from './routes/reports';
@@ -49,6 +50,7 @@ app.use('/api/*', async (c, next) => {
 
 // Routes hookup
 app.route('/api/auth', authRouter);
+app.route('/api/soleprop', solepropRouter);
 app.route('/api/settings', settingsRouter);
 app.route('/api/employees', employeesRouter);
 app.route('/api/payroll-runs', payrollRouter);
@@ -78,3 +80,13 @@ app.get('*', async (c) => {
 });
 
 export default app;
+
+// Daily Wise auto-sync cron (see [triggers] in wrangler.toml). Attached to
+// the Hono instance so existing `import app from './index'` test imports
+// keep working; the Workers runtime reads fetch + scheduled off it.
+import { runWiseAutoSync } from './routes/soleprop';
+Object.assign(app, {
+  scheduled(event: any, env: any, ctx: any) {
+    ctx.waitUntil(runWiseAutoSync(env));
+  },
+});

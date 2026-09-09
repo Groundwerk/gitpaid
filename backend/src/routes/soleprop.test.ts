@@ -1,0 +1,624 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { sign } from 'hono/jwt';
+import { encryptText } from '../utils/crypto';
+import app from '../index';
+
+const SECRET = 'test-secret-12345';
+
+function makeState() {
+  return {
+    settings: { id: 1, legal_name: 'Jane Doe', business_number: null, account_type: 'sole_prop' },
+    profile: {
+      id: 1, company_id: 1, business_number: null, start_date: '2026-08-15',
+      province: 'ON', ytd_pensionable_opening: 0, ytd_cpp_opening: 0,
+      ytd_cpp2_opening: 0, instalment_mode: 'quarterly',
+    },
+    deposits: [] as any[],
+    instalments: [] as any[],
+    remittances: [] as any[],
+    wiseToken: null as any,
+    ids: { deposit: 0, instalment: 0, remittance: 0 },
+  };
+}
+let state = makeState();
+
+const mockDb = {
+  prepare: (sql: string) => ({
+    bind: (...args: any[]) => ({
+      first: async () => {
+        if (sql.includes('FROM company_settings')) return state.settings;
+        if (sql.includes('FROM sole_prop_profile')) return state.profile;
+        if (sql.includes('FROM sole_prop_deposits WHERE id')) {
+          return state.deposits.find((d) => d.id === args[0] && d.company_id === args[1]) ?? null;
+        }
+        if (sql.includes('FROM sole_prop_instalments WHERE id')) {
+          return state.instalments.find((r) => r.id === args[0] && r.company_id === args[1]) ?? null;
+        }
+        if (sql.includes('FROM wise_tokens')) return state.wiseToken;
+        return null;
+      },
+      all: async () => {
+        if (sql.includes('FROM sole_prop_deposits')) {
+          return { results: state.deposits.filter((d) => d.company_id === args[0]) };
+        }
+        if (sql.includes('FROM sole_prop_instalments')) {
+          return { results: state.instalments.filter((r) => r.company_id === args[0]) };
+        }
+        if (sql.includes('JOIN wise_tokens')) {
+          const rows = state.wiseToken && state.wiseToken.auto_sync === 1 && state.wiseToken.employer_key
+            ? [{ company_id: 1, ...state.wiseToken }]
+            : [];
+          return { results: rows };
+        }
+        return { results: [] };
+      },
+      run: async () => {
+        if (sql.includes('INSERT INTO company_settings')) {
+          return { success: true, meta: { last_row_id: 1 } };
+        }
+        if (sql.includes('INSERT INTO sole_prop_profile')) {
+          state.profile = {
+            id: 1, company_id: args[0], business_number: args[1], start_date: args[2],
+            province: 'ON', ytd_pensionable_opening: args[3], ytd_cpp_opening: args[4],
+            ytd_cpp2_opening: args[5], instalment_mode: 'quarterly',
+          };
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('INSERT INTO sole_prop_deposits')) {
+          const id = ++state.ids.deposit;
+          state.deposits.push({
+            id, company_id: args[0], received_date: args[1], foreign_amount: args[2],
+            currency: args[3], fx_rate: args[4], fx_date_used: args[5], cad_amount: args[6],
+            tax_owed: 0, cpp_owed: 0, cpp2_owed: 0, note: args[7] ?? null,
+            wise_transfer_id: args[8] ?? null, voided: 0,
+          });
+          return { success: true, meta: { last_row_id: id } };
+        }
+        if (sql.includes('SET voided = 1')) {
+          const d = state.deposits.find((x) => x.id === args[0] && x.company_id === args[1]);
+          if (d) d.voided = 1;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('INSERT OR IGNORE INTO sole_prop_instalments')) {
+          const exists = state.instalments.some((r) => r.company_id === args[0] && r.due_date === args[2]);
+          if (!exists) {
+            state.instalments.push({
+              id: ++state.ids.instalment, company_id: args[0], tax_year: args[1],
+              due_date: args[2], kind: args[3], tax_amount: 0, cpp_amount: 0,
+              cpp2_amount: 0, total_amount: 0, paid: 0, paid_date: null,
+            });
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET tax_amount')) {
+          const r = state.instalments.find((x) => x.company_id === args[4] && x.due_date === args[5] && x.paid === 0);
+          if (r) {
+            r.tax_amount = args[0]; r.cpp_amount = args[1];
+            r.cpp2_amount = args[2]; r.total_amount = args[3];
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET voided = 1')) {
+          const d = state.deposits.find((x) => x.id === args[0] && x.company_id === args[1]);
+          if (d) d.voided = 1;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET tax_owed')) {
+          const d = state.deposits.find((x) => x.id === args[3] && x.company_id === args[4]);
+          if (d) { d.tax_owed = args[0]; d.cpp_owed = args[1]; d.cpp2_owed = args[2]; }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('UPDATE sole_prop_profile SET')) {
+          state.profile.business_number = args[0];
+          state.profile.ytd_pensionable_opening = args[1];
+          state.profile.ytd_cpp_opening = args[2];
+          state.profile.ytd_cpp2_opening = args[3];
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET paid = 1')) {
+          const r = state.instalments.find((x) => x.id === args[1] && x.company_id === args[2]);
+          if (r) { r.paid = 1; r.paid_date = args[0]; }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('DELETE FROM sole_prop_instalments')) {
+          state.instalments = state.instalments.filter((x) => !(x.id === args[0] && x.company_id === args[1]));
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('INSERT INTO wise_tokens')) {
+          state.wiseToken = {
+            company_id: args[0], encrypted_token: args[1], last4: args[2],
+            label: args[3] ?? null, updated_at: args[4],
+          };
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('DELETE FROM wise_tokens')) {
+          state.wiseToken = null;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET employer_key')) {
+          if (state.wiseToken) {
+            state.wiseToken.employer_key = args[0];
+            state.wiseToken.employer_label = args[1];
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('SET auto_sync')) {
+          if (state.wiseToken) {
+            state.wiseToken.auto_sync = args[0];
+            state.wiseToken.last_sync_at = args[1];
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('INSERT INTO remittance_payments')) {
+          state.remittances.push({
+            id: ++state.ids.remittance, company_id: args[0], type: 'INSTALMENT',
+            payment_date: args[1], amount: args[2], period_end: args[3],
+          });
+          return { success: true, meta: {} };
+        }
+      },
+    }),
+  }),
+};
+
+const testEnv = {
+  DB: mockDb as any,
+  JWT_SECRET: SECRET,
+  GOOGLE_CLIENT_ID: 'test-client-id',
+  ALLOW_MOCK_LOGIN: 'true',
+};
+
+async function authHeaders() {
+  const token = await sign(
+    { email: 'jane@example.com', name: 'Jane', companyId: 1, exp: Math.floor(Date.now() / 1000) + 100 },
+    SECRET
+  );
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+const okFx = async (url: string) => {
+  if (String(url).includes('frankfurter')) {
+    return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+  }
+  if (String(url).includes('api.wise.com/v1/profiles')) {
+    return { ok: true, status: 200, json: async () => ([{ id: 123, type: 'personal' }]) } as any;
+  }
+  throw new Error('unexpected fetch ' + url);
+};
+
+describe('soleprop routes', () => {
+  beforeEach(() => {
+    state = makeState();
+    vi.stubGlobal('fetch', okFx);
+  });
+
+  it('rejects company workspaces with 403', async () => {
+    state.settings.account_type = 'company';
+    const res = await app.request('/api/soleprop/overview', { headers: await authHeaders() }, testEnv);
+    expect(res.status).toBe(403);
+  });
+
+  it('creates a deposit with fetched FX and incremental obligations', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    // 5000 x 1.38 = 6900 CAD; below BPA so no tax; CPP (6900-3500)=3400 x11.9% = 404.60
+    expect(json.deposit.cad_amount).toBe(6900);
+    expect(json.deposit.fx_rate).toBe(1.38);
+    expect(json.deposit.fx_date_used).toBe('2026-09-01');
+    expect(json.deposit.tax_owed).toBe(0);
+    expect(json.deposit.cpp_owed).toBe(404.6);
+    const annual = json.overview.upcoming.find((r: any) => r.due_date === '2027-04-30');
+    expect(annual.total_amount).toBe(404.6);
+  });
+
+  it('second deposit stores only the increment', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 10000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    // cumulative 20700: fed (20700-16452)=4248 x14% = 594.72;
+    // ont (20700-12989)=7711 x5.05% = 389.4055; engine rounds sum 984.1255 -> 984.13
+    expect(json.deposit.tax_owed).toBe(984.13);
+    // CPP cumulative (20700-3500)=17200 x11.9% = 2046.80 minus prior 404.60
+    expect(json.deposit.cpp_owed).toBe(1642.2);
+  });
+
+  it('over-max CPP openings zero out CPP owed', async () => {
+    state.profile.ytd_pensionable_opening = 190000;
+    state.profile.ytd_cpp_opening = 8460.9;
+    state.profile.ytd_cpp2_opening = 832;
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    expect(json.deposit.cpp_owed).toBe(0);
+    expect(json.deposit.cpp2_owed).toBe(0);
+  });
+
+  it('void excludes the deposit and reallocates', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const second = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 10000, currency: 'USD' }),
+    }, testEnv);
+    const secondId = ((await second.json()) as any).deposit.id;
+    const res = await app.request(`/api/soleprop/deposits/${secondId}/void`, {
+      method: 'POST', headers,
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.overview.totals.cad).toBe(6900);
+    const annual = json.overview.upcoming.find((r: any) => r.due_date === '2027-04-30');
+    expect(annual.total_amount).toBe(404.6);
+  });
+  it('replays surviving shares when the first deposit is voided', async () => {
+    const headers = await authHeaders();
+    const first = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const firstId = ((await first.json()) as any).deposit.id;
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 10000, currency: 'USD' }),
+    }, testEnv);
+    await app.request(`/api/soleprop/deposits/${firstId}/void`, { method: 'POST', headers }, testEnv);
+    const res = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const json = await res.json() as any;
+    // Survivor recomputed standalone on 13800 CAD: federal below BPA;
+    // Ontario (13800-12989)=811 x5.05% = 40.96;
+    // CPP (13800-3500)=10300 x11.9% = 1225.70
+    const survivor = json.deposits.find((d: any) => !d.voided);
+    expect(survivor.tax_owed).toBe(40.96);
+    expect(survivor.cpp_owed).toBe(1225.7);
+    expect(json.totals.tax).toBe(40.96);
+    expect(json.totals.cpp).toBe(1225.7);
+  });
+
+
+  it('pay marks instalment and mirrors remittance_payments', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const annual = ((await created.json()) as any).overview.upcoming.find((r: any) => r.due_date === '2027-04-30');
+    const res = await app.request(`/api/soleprop/instalments/${annual.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-04-15' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.instalment.paid).toBe(1);
+    expect(json.instalment.paid_date).toBe('2027-04-15');
+    expect(state.remittances).toHaveLength(1);
+    expect(state.remittances[0].type).toBe('INSTALMENT');
+    expect(state.remittances[0].amount).toBe(404.6);
+  });
+
+  it('fx-preview returns 502 when frankfurter is down', async () => {
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 500, json: async () => ({}) } as any));
+    const res = await app.request(
+      '/api/soleprop/fx-preview?date=2026-09-01&currency=USD',
+      { headers: await authHeaders() },
+      testEnv
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it('onboards a sole proprietor without a business number', async () => {
+    const token = await sign(
+      { email: 'new@example.com', name: 'New', companyId: null, exp: Math.floor(Date.now() / 1000) + 100 },
+      SECRET
+    );
+    const res = await app.request('/api/settings', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        legal_name: 'Jane Doe Sole Prop',
+        account_type: 'sole_prop',
+        sole_prop_start_date: '2026-08-15',
+        sole_prop_ytd_pensionable: 190000,
+        sole_prop_ytd_cpp: 8460.9,
+        sole_prop_ytd_cpp2: 832,
+      }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.companyId).toBe(1);
+    expect(json.token).toBeDefined();
+    expect(state.profile.start_date).toBe('2026-08-15');
+    expect(state.profile.ytd_cpp_opening).toBe(8460.9);
+    expect(state.profile.business_number).toBeNull();
+  });
+  it('updates openings and recomputes live shares', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    // Max out CPP openings: the deposit's CPP share must vanish on replay
+    const maxed = await app.request('/api/soleprop/profile', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ytd_pensionable_opening: 190000, ytd_cpp_opening: 8460.9, ytd_cpp2_opening: 832 }),
+    }, testEnv);
+    expect(maxed.status).toBe(200);
+    expect(state.profile.ytd_cpp_opening).toBe(8460.9);
+    let overview = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    expect(((await overview.json()) as any).totals.cpp).toBe(0);
+    // Correct back to zero openings: CPP (6900-3500)=3400 x11.9% = 404.60
+    await app.request('/api/soleprop/profile', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ytd_pensionable_opening: 0, ytd_cpp_opening: 0, ytd_cpp2_opening: 0 }),
+    }, testEnv);
+    overview = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const json = await overview.json() as any;
+    expect(json.totals.cpp).toBe(404.6);
+    expect(json.totals.tax).toBe(0);
+  });
+
+  it('shows only the annual row until it is paid', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    expect(json.overview.upcoming).toHaveLength(1);
+    expect(json.overview.upcoming[0]).toMatchObject({ kind: 'annual', due_date: '2027-04-30' });
+  });
+
+  it('opens the quarterly gate once the annual balance is paid', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const annual = ((await created.json()) as any).overview.upcoming[0];
+    const paid = await app.request(`/api/soleprop/instalments/${annual.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-04-15' }),
+    }, testEnv);
+    expect(paid.status).toBe(200);
+    const overviewRes = await app.request('/api/soleprop/overview', { headers }, testEnv);
+    const overview = ((await overviewRes.json()) as any);
+    const quarterlies = overview.upcoming.filter((r: any) => r.kind === 'quarterly');
+    expect(quarterlies).toHaveLength(1);
+    const today = new Date().toISOString().split('T')[0];
+    for (const q of quarterlies) expect(q.due_date > today).toBe(true);
+  });
+  it('prunes stale future rows but keeps paid ones', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    state.instalments.push(
+      { id: 900, company_id: 1, tax_year: 2099, due_date: '2099-03-15', kind: 'quarterly', tax_amount: 0, cpp_amount: 0, cpp2_amount: 0, total_amount: 0, paid: 0, paid_date: null },
+      { id: 901, company_id: 1, tax_year: 2099, due_date: '2099-06-15', kind: 'quarterly', tax_amount: 10, cpp_amount: 0, cpp2_amount: 0, total_amount: 10, paid: 1, paid_date: '2099-06-01' },
+    );
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 1000, currency: 'USD' }),
+    }, testEnv);
+    const json = await res.json() as any;
+    const dueDates = json.overview.upcoming.map((r: any) => r.due_date);
+    expect(dueDates).not.toContain('2099-03-15');
+    expect(dueDates).toContain('2099-06-15');
+  });
+
+  it('records CAD deposits at par without fetching FX', async () => {
+    let fetched = 0;
+    vi.stubGlobal('fetch', async () => { fetched += 1; return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any; });
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.fx_rate).toBe(1);
+    expect(json.deposit.cad_amount).toBe(1000);
+    expect(fetched).toBe(0);
+  });
+
+  it('accepts other frankfurter currencies', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 100000, currency: 'JPY' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.currency).toBe('JPY');
+    expect(json.deposit.cad_amount).toBe(138000);
+  });
+
+  it('rejects unsupported currencies', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 100, currency: 'XX' }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+  });
+
+  it('reports disconnected Wise status initially', async () => {
+    const res = await app.request('/api/soleprop/wise/status', { headers: await authHeaders() }, testEnv);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ connected: false, last4: null, label: null, updated_at: null });
+  });
+
+  it('saves a Wise token only after live validation and never returns it', async () => {
+    const res = await app.request('/api/soleprop/wise/token', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ token: 'live-test-token-abc123', label: 'Personal' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json).toEqual({ connected: true, last4: 'c123', label: 'Personal', updated_at: expect.any(String) });
+    // Stored ciphertext must not contain the plaintext token
+    expect(state.wiseToken.encrypted_token).not.toContain('live-test-token-abc123');
+    expect(JSON.stringify(json)).not.toContain('live-test-token-abc123');
+  });
+
+  it('rejects invalid Wise tokens without storing', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('frankfurter')) {
+        return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as any;
+    });
+    const res = await app.request('/api/soleprop/wise/token', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ token: 'bad-token' }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+    expect(state.wiseToken).toBeNull();
+  });
+
+  it('tests the stored token and removes it', async () => {
+    const headers = await authHeaders();
+    await app.request('/api/soleprop/wise/token', {
+      method: 'POST', headers,
+      body: JSON.stringify({ token: 'live-test-token-abc123' }),
+    }, testEnv);
+    const test = await app.request('/api/soleprop/wise/test', { method: 'POST', headers }, testEnv);
+    expect(test.status).toBe(200);
+    expect(await test.json()).toEqual({ ok: true, profiles: 1 });
+    const del = await app.request('/api/soleprop/wise/token', { method: 'DELETE', headers }, testEnv);
+    expect(del.status).toBe(200);
+    expect(state.wiseToken).toBeNull();
+  });
+
+  it('previews incoming Wise credits with import flags', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
+          { type: 'CREDIT', date: '2026-09-06T10:00:00.000Z', amount: { value: 50, currency: 'USD' }, details: { description: 'Coffee refund' }, referenceNumber: 'PAY-2' },
+          { type: 'DEBIT', date: '2026-09-07T10:00:00.000Z', amount: { value: 10, currency: 'USD' }, details: {}, referenceNumber: 'PAY-3' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    // Seed a connected token directly (validated-save path is covered above)
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const res = await app.request('/api/soleprop/wise/preview?days=30', { headers: await authHeaders() }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.candidates).toHaveLength(2);
+    expect(json.candidates[0]).toMatchObject({ key: 'wise:PAY-1', senderKey: 'deel inc', alreadyImported: false });
+    expect(json.employer).toBeNull();
+    expect(json.autoSync).toBe(false);
+  });
+
+  it('imports selected credits once and records the employer', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-1' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const headers = await authHeaders();
+    const first = await app.request('/api/soleprop/wise/import', {
+      method: 'POST', headers,
+      body: JSON.stringify({ keys: ['wise:PAY-1'], employerKey: 'deel inc', employerLabel: 'Deel Inc' }),
+    }, testEnv);
+    expect(first.status).toBe(200);
+    const firstJson = await first.json() as any;
+    expect(firstJson.imported).toBe(1);
+    expect(state.wiseToken.employer_key).toBe('deel inc');
+    // Re-import is a no-op thanks to the wise key dedup
+    const second = await app.request('/api/soleprop/wise/import', {
+      method: 'POST', headers,
+      body: JSON.stringify({ keys: ['wise:PAY-1'] }),
+    }, testEnv);
+    expect(((await second.json()) as any).imported).toBe(0);
+  });
+
+  it('refuses auto-sync without an employer and runs it once set', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url);
+      if (u.includes('frankfurter')) return { ok: true, json: async () => ({ rates: { CAD: 1.38 } }) } as any;
+      if (u.includes('/v1/profiles')) return { ok: true, status: 200, json: async () => ([{ id: 11, type: 'personal' }]) } as any;
+      if (u.includes('/balances?types=')) return { ok: true, status: 200, json: async () => ([{ id: 22, currency: 'USD' }]) } as any;
+      if (u.includes('statement.json')) return { ok: true, status: 200, json: async () => ({
+        transactions: [
+          { type: 'CREDIT', date: '2026-09-05T10:00:00.000Z', amount: { value: 1000, currency: 'USD' }, details: { senderName: 'Deel Inc' }, referenceNumber: 'PAY-9' },
+          { type: 'CREDIT', date: '2026-09-06T10:00:00.000Z', amount: { value: 50, currency: 'USD' }, details: { description: 'Coffee refund' }, referenceNumber: 'PAY-8' },
+        ],
+      }) } as any;
+      throw new Error('unexpected fetch ' + url);
+    });
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const headers = await authHeaders();
+    const refused = await app.request('/api/soleprop/wise/auto-sync', {
+      method: 'PUT', headers, body: JSON.stringify({ enabled: true }),
+    }, testEnv);
+    expect(refused.status).toBe(400);
+    state.wiseToken.employer_key = 'deel inc';
+    const allowed = await app.request('/api/soleprop/wise/auto-sync', {
+      method: 'PUT', headers, body: JSON.stringify({ enabled: true }),
+    }, testEnv);
+    expect(allowed.status).toBe(200);
+    expect(state.wiseToken.auto_sync).toBe(1);
+    const run = await app.request('/api/soleprop/wise/run-now', { method: 'POST', headers }, testEnv);
+    const runJson = await run.json() as any;
+    expect(runJson.imported).toBe(1);
+    expect(state.deposits.filter((d: any) => d.wise_transfer_id === 'wise:PAY-9')).toHaveLength(1);
+    expect(state.deposits.some((d: any) => d.wise_transfer_id === 'wise:PAY-8')).toBe(false);
+  });
+
+  it('sets the employer without importing', async () => {
+    state.wiseToken = {
+      company_id: 1, encrypted_token: await encryptText('sync-token', SECRET),
+      last4: 'oken', label: null, updated_at: '2026-09-08', auto_sync: 0, employer_key: null,
+    };
+    const res = await app.request('/api/soleprop/wise/employer', {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify({ key: 'Deel Inc', label: 'Deel Inc' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    expect(state.wiseToken.employer_key).toBe('deel inc');
+  });
+
+});

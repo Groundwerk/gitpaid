@@ -12,6 +12,7 @@ interface SidebarProps {
   brandLogo?: string | null;
   companyDisplayName?: string;
   useCompanyBranding?: boolean;
+  accountType?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -25,15 +26,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   brandLogo,
   companyDisplayName,
-  useCompanyBranding = false
+  useCompanyBranding = false,
+  accountType = 'company'
 }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'employees', label: 'Employees', icon: 'group' },
-    { id: 'run-payroll', label: 'Payroll Run', icon: 'payments' },
-    { id: 'reports', label: 'Reports', icon: 'description' },
-    { id: 'settings', label: 'Settings', icon: 'settings' },
-  ];
+  const navItems = accountType === 'sole_prop'
+    ? [
+        { id: 'dashboard', label: 'Ledger', icon: 'account_balance' },
+        { id: 'reports', label: 'Earnings Report', icon: 'description' },
+      ]
+    : [
+        { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+        { id: 'employees', label: 'Employees', icon: 'group' },
+        { id: 'run-payroll', label: 'Payroll Run', icon: 'payments' },
+        { id: 'reports', label: 'Reports', icon: 'description' },
+        { id: 'settings', label: 'Settings', icon: 'settings' },
+      ];
 
   const handleTabClick = (tabId: string) => {
     setActiveTab(tabId);
@@ -77,18 +84,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="min-w-0">
             <h1 className="font-semibold text-lg text-primary tracking-tight leading-tight truncate">{portalTitle}</h1>
-            <p className="text-xs text-on-surface-variant font-medium">Payroll Portal</p>
+            <p className="text-xs text-on-surface-variant font-medium">{accountType === 'sole_prop' ? 'Sole Proprietor' : 'Payroll Portal'}</p>
           </div>
         </div>
 
-        {/* Quick Action: Run Payroll */}
-        <button
-          onClick={onRunPayrollClick}
-          className="w-full mb-6 bg-highlight text-on-highlight font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_4px_12px_rgba(0,30,64,0.1)] active:scale-95 duration-100"
-        >
-          <span className="material-symbols-outlined text-[18px]">payments</span>
-          Run Payroll
-        </button>
+        {accountType !== 'sole_prop' && (
+          <>
+            {/* Quick Action: Run Payroll */}
+            <button
+              onClick={onRunPayrollClick}
+              className="w-full mb-6 bg-highlight text-on-highlight font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_4px_12px_rgba(0,30,64,0.1)] active:scale-95 duration-100"
+            >
+              <span className="material-symbols-outlined text-[18px]">payments</span>
+              Run Payroll
+            </button>
+          </>
+        )}
 
         {/* Navigation Tabs */}
         <div className="flex-1 flex flex-col gap-1 overflow-y-auto">

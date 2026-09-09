@@ -60,7 +60,7 @@ describe('Frontend App Authentication States', () => {
     });
   });
 
-  it('renders OnboardingView when authenticated but missing company settings profile', async () => {
+  it('renders the account-type picker when authenticated but missing company settings profile', async () => {
     localStorage.setItem('token', 'mock-jwt-token');
     localStorage.setItem('email', 'admin@company.com');
     localStorage.setItem('name', 'Admin User');
@@ -69,10 +69,9 @@ describe('Frontend App Authentication States', () => {
     
     render(<App />);
     
-    expect(screen.getByText('Onboard Your Business')).toBeInTheDocument();
-    expect(screen.getByText('Company')).toBeInTheDocument();
-    expect(screen.getByText('Contact')).toBeInTheDocument();
-    expect(screen.getByText('Payroll & Tax')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to Gitpaid')).toBeInTheDocument();
+    expect(screen.getByText('Register a company')).toBeInTheDocument();
+    expect(screen.getByText('Register as sole proprietor')).toBeInTheDocument();
   });
 
   it('renders DashboardView when authenticated and company settings profile is complete', async () => {

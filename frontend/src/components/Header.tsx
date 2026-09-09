@@ -9,6 +9,7 @@ interface HeaderProps {
   companyName?: string;
   userAvatar?: string;
   onLogout?: () => void;
+  accountType?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,9 +18,10 @@ export const Header: React.FC<HeaderProps> = ({
   onNewEmployeeClick,
   activeTab,
   setActiveTab,
-  companyName = 'My Business',
   userAvatar = '',
-  onLogout
+  companyName = 'My Business',
+  onLogout,
+  accountType = 'company'
 }) => {
   return (
     <header className="bg-surface border-b border-outline-variant z-30 sticky top-0 flex justify-between items-center h-16 px-4 md:px-8">
@@ -33,25 +35,24 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         <span className="md:hidden font-semibold text-primary text-sm">{title}</span>
         
-        {/* Navigation Tabs aligned left */}
         <nav className="hidden sm:flex items-end h-full gap-6 pt-4 self-stretch">
-          <button 
+          <button
             onClick={() => setActiveTab('dashboard')}
             className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
-            Overview
+            {accountType === 'sole_prop' ? 'Ledger' : 'Overview'}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('reports')}
             className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'reports' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
-            Reports
+            {accountType === 'sole_prop' ? 'Earnings Report' : 'Reports'}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('settings')}
             className={`pb-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-highlight text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
-            Compliance Config
+            {accountType === 'sole_prop' ? 'Settings' : 'Compliance Config'}
           </button>
         </nav>
       </div>

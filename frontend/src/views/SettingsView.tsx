@@ -4,6 +4,7 @@ import { sanitizeNumericInput, formatSIN, cleanSIN, formatBusinessNumber, cleanB
 import { FormattedInput } from '../components/FormattedInput';
 import { NumericFormat } from 'react-number-format';
 import type { CompanySettings } from '../types';
+import SolePropSettingsView from './SolePropSettingsView';
 
 interface SettingsViewProps {
   triggerToast: (msg: string, type: 'success' | 'error') => void;
@@ -462,6 +463,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
     );
   }
+  if (settings.account_type === 'sole_prop') {
+    return <SolePropSettingsView triggerToast={triggerToast} onSettingsUpdate={onSettingsUpdate} />;
+  }
+
 
   return (
     <div className="flex flex-col gap-6">

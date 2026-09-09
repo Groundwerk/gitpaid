@@ -20,6 +20,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
   const [saving, setSaving] = useState(false);
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [onboardingResponse, setOnboardingResponse] = useState<{ token: string; companyId: number } | null>(null);
+  const [accountType, setAccountType] = useState<'company' | 'sole_prop' | null>(null);
+  const [sp, setSp] = useState({
+    start_date: new Date().toISOString().split('T')[0],
+    business_number: '',
+    ytd_pensionable: '',
+    ytd_cpp: '',
+    ytd_cpp2: '',
+  });
   const [settings, setSettings] = useState<Partial<CompanySettings>>({
     legal_name: '',
     operating_name: '',
@@ -79,7 +87,32 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     }
   };
 
+  const handleSpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value, type } = e.target;
+    const key = id.replace(/^sp_/, '');
+    const finalVal = type === 'number' ? sanitizeNumericInput(value) : value;
+    setSp(prev => ({ ...prev, [key]: finalVal }));
+  };
+
   const validateStep = () => {
+    if (accountType === 'sole_prop') {
+      if (!settings.legal_name?.trim()) {
+        triggerToast('Your name is required.', 'error');
+        return false;
+      }
+      if (sp.business_number.trim()) {
+        const digits = cleanBusinessNumber(sp.business_number);
+        if (!/^\d{9}$/.test(digits)) {
+          triggerToast('Business Number must be 9 digits (or leave it blank).', 'error');
+          return false;
+        }
+      }
+      if (!sp.start_date) {
+        triggerToast('Start date is required.', 'error');
+        return false;
+      }
+      return true;
+    }
     if (step === 1) {
       if (!settings.legal_name?.trim()) {
         triggerToast('Legal Company Name is required.', 'error');
@@ -166,6 +199,29 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
     try {
       setSaving(true);
+      if (accountType === 'sole_prop') {
+        const digits = cleanBusinessNumber(sp.business_number);
+        const payload = {
+          legal_name: settings.legal_name?.trim(),
+          account_type: 'sole_prop' as const,
+          business_number: digits.length === 9 ? digits : undefined,
+          sole_prop_start_date: sp.start_date,
+          sole_prop_business_number: digits.length === 9 ? digits : null,
+          sole_prop_ytd_pensionable: Number(sp.ytd_pensionable) || 0,
+          sole_prop_ytd_cpp: Number(sp.ytd_cpp) || 0,
+          sole_prop_ytd_cpp2: Number(sp.ytd_cpp2) || 0,
+        };
+        const response: any = await api.updateSettings(payload);
+        if (response && response.token && response.companyId) {
+          triggerToast('Sole proprietor profile complete!', 'success');
+          localStorage.setItem('token', response.token);
+          localStorage.setItem('companyId', response.companyId.toString());
+          onOnboardingComplete(response.token, response.companyId);
+        } else {
+          throw new Error('Onboarding did not return session token');
+        }
+        return;
+      }
       const response: any = await api.updateSettings(settings);
       
       if (response && response.token && response.companyId) {
@@ -184,6 +240,187 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       setSaving(false);
     }
   };
+
+  if (accountType === null) {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center p-4">
+        <div className="bg-surface-container-lowest border border-outline-variant shadow-lg rounded-2xl p-6 md:p-8 max-w-2xl w-full">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-primary tracking-tight">Welcome to Gitpaid</h2>
+              <p className="text-xs text-on-surface-variant font-medium mt-1">
+                Choose the workspace that matches how you earn.
+              </p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="text-xs font-bold text-outline hover:text-error transition-colors flex items-center gap-1 py-1 px-2.5 rounded-lg border border-outline-variant hover:border-error/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              Sign Out
+            </button>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setAccountType('company')}
+              className="text-left border border-outline-variant rounded-xl p-5 hover:border-highlight hover:shadow-md transition-all"
+            >
+              <span className="material-symbols-outlined text-[28px] text-highlight">business</span>
+              <span className="block text-sm font-bold text-primary mt-2">Register a company</span>
+              <span className="block text-xs text-on-surface-variant mt-1">
+                Ontario payroll for employees: CPP, EI, income tax, WSIB, EHT and pay stubs.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccountType('sole_prop')}
+              className="text-left border border-outline-variant rounded-xl p-5 hover:border-highlight hover:shadow-md transition-all"
+            >
+              <span className="material-symbols-outlined text-[28px] text-highlight">person</span>
+              <span className="block text-sm font-bold text-primary mt-2">Register as sole proprietor</span>
+              <span className="block text-xs text-on-surface-variant mt-1">
+                Track USD invoices in CAD, estimate income tax + CPP instalments, and GST threshold alerts.
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (accountType === 'sole_prop') {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center p-4">
+        <div className="bg-surface-container-lowest border border-outline-variant shadow-lg rounded-2xl p-6 md:p-8 max-w-2xl w-full">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-primary tracking-tight">Sole Proprietor Setup</h2>
+              <p className="text-xs text-on-surface-variant font-medium mt-1">
+                Ontario only in V1. Quarterly instalments (Mar 15 / Jun 15 / Sep 15 / Dec 15).
+              </p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="text-xs font-bold text-outline hover:text-error transition-colors flex items-center gap-1 py-1 px-2.5 rounded-lg border border-outline-variant hover:border-error/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              Sign Out
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="legal_name">
+                Your Name *
+              </label>
+              <input
+                type="text"
+                id="legal_name"
+                value={settings.legal_name}
+                onChange={handleChange}
+                placeholder="e.g. Jane Doe"
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_business_number">
+                CRA Business Number (optional)
+              </label>
+              <input
+                type="text"
+                id="sp_business_number"
+                value={sp.business_number}
+                onChange={handleSpChange}
+                placeholder="9 digits, if you have one"
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_start_date">
+                Start Date *
+              </label>
+              <input
+                type="date"
+                id="sp_start_date"
+                value={sp.start_date}
+                onChange={handleSpChange}
+                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+                required
+              />
+            </div>
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-1 mt-2">
+              2026 Amounts Already Paid Outside Gitpaid
+            </h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_ytd_pensionable">
+                  Pensionable Earnings ($)
+                </label>
+                <input
+                  type="number"
+                  id="sp_ytd_pensionable"
+                  value={sp.ytd_pensionable}
+                  onChange={handleSpChange}
+                  placeholder="0"
+                  min="0"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_ytd_cpp">
+                  CPP Paid ($)
+                </label>
+                <input
+                  type="number"
+                  id="sp_ytd_cpp"
+                  value={sp.ytd_cpp}
+                  onChange={handleSpChange}
+                  placeholder="0"
+                  min="0"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_ytd_cpp2">
+                  CPP2 Paid ($)
+                </label>
+                <input
+                  type="number"
+                  id="sp_ytd_cpp2"
+                  value={sp.ytd_cpp2}
+                  onChange={handleSpChange}
+                  placeholder="0"
+                  min="0"
+                  className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant bg-surface-container rounded-lg p-3">
+              First-year instalments are deferred — your running estimate is due April 30 of next year.
+              Quarterly instalments start the following year.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setAccountType(null)}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold text-on-surface-variant hover:border-highlight transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="h-10 px-6 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Complete Setup'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center p-4">
