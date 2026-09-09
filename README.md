@@ -161,6 +161,7 @@ The button handles the provisioning and connection of resources automatically:
    * `GMAIL_CLIENT_SECRET` (Your Google Client Secret)
 5. Cloudflare will build the Vite frontend, bundle it with the Hono worker, automatically apply the D1 database migrations remote-side, and publish the worker.
 6. **Subsequent Deploys**: Any future commits pushed to the newly created GitHub repository will automatically trigger a build, apply migrations, and redeploy.
+7. **Pulling upstream updates**: your clone does not track this repo, but it ships with a manual sync workflow. Go to the clone's **Actions** tab → **Sync from upstream** → **Run workflow** to fast-forward it to the latest upstream `main` (which then redeploys). It never force-pushes: if the run fails, the clone has local commits that need a human.
 
 ---
 
