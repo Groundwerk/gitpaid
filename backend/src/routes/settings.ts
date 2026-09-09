@@ -75,15 +75,16 @@ const saveSettings = async (c: any) => {
 
     const accountType = account_type === 'sole_prop' ? 'sole_prop' : 'company';
 
-    if (accountType === 'sole_prop') {
-      if (!legal_name) {
-        return c.json({ error: 'Legal Name is mandatory' }, 400);
-      }
-    } else if (!legal_name || !business_number) {
-      return c.json({ error: 'Legal Name and Business Number are mandatory' }, 400);
-    }
-
     if (!companyId) {
+      // Mandatory fields apply to first-time onboarding only; updates
+      // carry partial payloads (e.g. sole-prop name edit without BN).
+      if (accountType === 'sole_prop') {
+        if (!legal_name) {
+          return c.json({ error: 'Legal Name is mandatory' }, 400);
+        }
+      } else if (!legal_name || !business_number) {
+        return c.json({ error: 'Legal Name and Business Number are mandatory' }, 400);
+      }
       // 1. First-time onboarding setup
       const result = await c.env.DB.prepare(`
         INSERT INTO company_settings (

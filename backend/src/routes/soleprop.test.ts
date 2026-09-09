@@ -268,6 +268,18 @@ describe('soleprop routes', () => {
     const annual = json.overview.upcoming.find((r: any) => r.due_date === '2027-04-30');
     expect(annual.total_amount).toBe(404.6);
   });
+  it('allows sole-prop settings updates without resending BN', async () => {
+    const token = await sign(
+      { email: 'jane@example.com', name: 'Jane', companyId: 1, exp: Math.floor(Date.now() / 1000) + 100 },
+      SECRET
+    );
+    const res = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ legal_name: 'Jane Doe' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+  });
   it('replays surviving shares when the first deposit is voided', async () => {
     const headers = await authHeaders();
     const first = await app.request('/api/soleprop/deposits', {
