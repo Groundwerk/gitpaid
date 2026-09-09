@@ -223,6 +223,17 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
       triggerToast(error.message || 'Failed to save Business Number.', 'error');
     }
   };
+  const armBreakdown = (e: React.MouseEvent<HTMLElement>, d: { id: number; breakdown?: unknown }) => {
+    if (!d.breakdown) return;
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const id = d.id;
+    const cursorX = e.clientX;
+    hoverTimer.current = window.setTimeout(() => {
+      setBreakdownFor(id);
+      setTipPos({ top: rect.top, left: cursorX + 12 });
+    }, 800);
+  };
 
   const renderInstCard = (inst: { id: number; kind: string; due_date: string; tax_amount: number; cpp_amount: number; cpp2_amount: number; total_amount: number; paid: number; paid_date: string | null }) => {
     const overdue = isOverdue(inst.due_date, inst.paid);
@@ -549,17 +560,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                 {overview.deposits.map(d => (
                   <tr
                     key={d.id}
-                    className="border-b border-outline-variant last:border-0 hover:bg-surface-container transition-colors"
-                    onMouseEnter={(e) => {
-                      if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const id = d.id;
-                      const cursorX = e.clientX;
-                      hoverTimer.current = window.setTimeout(() => {
-                        setBreakdownFor(id);
-                        setTipPos({ top: rect.top, left: cursorX + 12 });
-                      }, 800);
-                    }}
+                    className="border-b border-outline-variant last:border-0"
                     onMouseLeave={() => {
                       if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
                       setBreakdownFor(prev => (prev === d.id ? null : prev));
@@ -570,8 +571,16 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                     <td className="py-2 pr-3 whitespace-nowrap">{d.foreign_amount.toLocaleString('en-CA')} {d.currency}</td>
                     <td className="py-2 pr-3">{d.fx_rate}</td>
                     <td className="py-2 pr-3 font-semibold">{formatCurrency(d.cad_amount)}</td>
-                    <td className="py-2 pr-3">{formatCurrency(d.tax_owed)}</td>
-                    <td className="py-2 pr-3">{formatCurrency(d.cpp_owed)}</td>
+                    <td className="py-2 pr-3" onMouseEnter={(e) => armBreakdown(e, d)}>
+                      <span className="underline decoration-dotted underline-offset-4 hover:text-primary hover:decoration-solid transition-colors cursor-help">
+                        {formatCurrency(d.tax_owed)}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3" onMouseEnter={(e) => armBreakdown(e, d)}>
+                      <span className="underline decoration-dotted underline-offset-4 hover:text-primary hover:decoration-solid transition-colors cursor-help">
+                        {formatCurrency(d.cpp_owed)}
+                      </span>
+                    </td>
                     <td className="py-2 pr-3">{formatCurrency(d.cpp2_owed)}</td>
                     <td className="py-2">
                       <button
