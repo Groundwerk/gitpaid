@@ -82,4 +82,34 @@ describe('SolePropSettingsView', () => {
     expect(api.getSolePropOverview).toHaveBeenCalledTimes(2);
   });
 
+  it('asks before recalculating and aborts on cancel', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      deposits: [{ id: 1, received_date: '2026-09-01', cad_amount: 6900, tax_owed: 0, cpp_owed: 404.6, cpp2_owed: 0 }],
+      upcoming: [{ id: 1, due_date: '2027-04-30', paid: 1 }],
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByLabelText(/CPP paid \(\$\)/i), { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: /save openings/i }));
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(api.updateSolePropProfile).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('proceeds on confirm when deposits exist', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      deposits: [{ id: 1, received_date: '2026-09-01', cad_amount: 6900, tax_owed: 0, cpp_owed: 404.6, cpp2_owed: 0 }],
+      upcoming: [],
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.updateSolePropProfile).mockResolvedValue({ profile: overview.profile });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByLabelText(/CPP paid \(\$\)/i), { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: /save openings/i }));
+    await waitFor(() => expect(api.updateSolePropProfile).toHaveBeenCalled());
+    confirmSpy.mockRestore();
+  });
+
 });
