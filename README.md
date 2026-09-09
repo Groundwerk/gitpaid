@@ -1,6 +1,6 @@
 # Ontario Payroll Solution
 
-A modern, secure, and fully dynamic payroll system specifically compliant with Ontario employment standards. Designed to run seamlessly on the **Cloudflare Serverless Stack** (Workers & D1 Database) and integrated with **Google Authentication**.
+A modern, secure, and fully dynamic payroll system specifically compliant with Ontario employment standards. Designed to run seamlessly on the **Cloudflare Serverless Stack** (Workers & D1 Database) and integrated with **Google Authentication**. Also includes a **Sole Proprietor** workspace: ledger-style income tracking with CRA instalment estimates instead of payroll.
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Groundwerk/gitpaid)
 
@@ -213,3 +213,16 @@ The backend tax engine processes deductions dynamically:
 - **Income Tax**: Combines Federal and Provincial tax brackets to calculate cumulative progressive deductions.
 - **WSIB**: Calculated as `Gross Earnings * WSIB Rate %`.
 - **EHT**: 1.95% calculated on payroll, automatically applying the $1,000,000 threshold exemption if checked.
+
+---
+
+## Sole Proprietor Workspace
+
+Choose **Register as sole proprietor** during onboarding for bookkeeping and CRA tax planning instead of payroll. All figures are estimates.
+
+- **Deposits ledger**: manually record amounts paid in 30 foreign currencies (USD default); CAD conversion via frankfurter.dev, stored with the rate used (editable before save, immutable after).
+- **Tax + CPP/CPP2 engine**: 2025/2026 federal and Ontario progressive brackets, self-employed CPP (2x rate to YMPE) and CPP2 (YMPE to YAMPE), EI exempt. Opening YTD balances are editable in Settings; every deposit/void recomputes all shares.
+- **Instalments**: first calendar year accrues to a single annual balance due April 30; quarterly instalments (Mar 15 / Jun 15 / Sep 15 / Dec 15) start only after the annual balance is paid. Mark-paid tracking included.
+- **GST/HST threshold**: rolling 4-quarter CAD revenue tracked against the $30,000 registration threshold, with a blocking banner and 29-day countdown until a Business Number is saved.
+- **Earnings report**: per-tax-year totals plus per-deposit detail with CSV export; hovering a tax/CPP amount shows the marginal breakdown behind it.
+- **Wise integration**: save a personal API token (verified live, AES-GCM encrypted at rest, never returned by the API) in Settings, then sync incoming statement credits, designate the employer sender, import as deposits, and enable daily auto-sync (noon UTC cron).
