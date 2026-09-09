@@ -109,7 +109,7 @@ describe('SolePropDashboardView', () => {
     await waitFor(() => expect(api.setWiseAutoSync).toHaveBeenCalledWith(true));
   });
 
-  it('expands a marginal-tax explanation per deposit', async () => {
+  it('shows a marginal-tax tooltip per deposit without clicking', async () => {
     vi.mocked(api.getSolePropOverview).mockResolvedValue({
       ...overview,
       deposits: [
@@ -125,7 +125,6 @@ describe('SolePropDashboardView', () => {
       ],
     });
     render(<SolePropDashboardView triggerToast={() => {}} />);
-    fireEvent.click(await screen.findByRole('button', { name: /why is tax/i }));
     expect(await screen.findByText(/covers dollars/)).toBeInTheDocument();
     expect(screen.getByText(/19\.1% marginal/)).toBeInTheDocument();
   });

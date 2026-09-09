@@ -115,7 +115,6 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
   const [wiseSelected, setWiseSelected] = useState<string[]>([]);
   const [wiseEmployerPick, setWiseEmployerPick] = useState('');
   const [wiseBusy, setWiseBusy] = useState(false);
-  const [breakdownFor, setBreakdownFor] = useState<number | null>(null);
 
   const refreshWiseStatus = async () => {
     try {
@@ -532,6 +531,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                   <th className="py-2 pr-3">Rate</th>
                   <th className="py-2 pr-3">CAD</th>
                   <th className="py-2 pr-3">Tax</th>
+                  <th className="py-2 pr-2 w-8"><span className="sr-only">Details</span></th>
                   <th className="py-2 pr-3">CPP</th>
                   <th className="py-2 pr-3">CPP2</th>
                   <th className="py-2 pr-3"><span className="sr-only">Actions</span></th>
@@ -539,24 +539,31 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
               </thead>
               <tbody>
                 {overview.deposits.map(d => (
-                  <React.Fragment key={d.id}>
-                  <tr className="border-b border-outline-variant last:border-0">
+                  <tr key={d.id} className="border-b border-outline-variant last:border-0">
                     <td className="py-2 pr-3 whitespace-nowrap">{d.received_date}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">{d.foreign_amount.toLocaleString('en-CA')} {d.currency}</td>
                     <td className="py-2 pr-3">{d.fx_rate}</td>
                     <td className="py-2 pr-3 font-semibold">{formatCurrency(d.cad_amount)}</td>
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {formatCurrency(d.tax_owed)}
+                    <td className="py-2 pr-3">{formatCurrency(d.tax_owed)}</td>
+                    <td className="py-2 pr-2 w-8">
                       {d.breakdown && (
-                        <button
-                          type="button"
-                          aria-label={`Why is tax ${formatCurrency(d.tax_owed)} on this deposit`}
-                          aria-expanded={breakdownFor === d.id}
-                          onClick={() => setBreakdownFor(prev => (prev === d.id ? null : d.id))}
-                          className="ml-1.5 inline-flex items-center justify-center h-5 w-5 rounded-full border border-outline-variant text-[11px] font-bold text-on-surface-variant hover:border-highlight hover:text-primary transition-colors align-middle"
-                        >
-                          i
-                        </button>
+                        <span className="group relative inline-flex">
+                          <span
+                            role="img"
+                            aria-label={`Why is tax ${formatCurrency(d.tax_owed)} on this deposit`}
+                            className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-outline-variant text-[11px] font-bold text-on-surface-variant group-hover:border-highlight group-hover:text-primary transition-colors cursor-help"
+                          >
+                            i
+                          </span>
+                          <span className="invisible group-hover:visible absolute right-0 top-6 z-20 w-72 p-3 rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg text-xs text-on-surface-variant font-normal whitespace-normal">
+                            This deposit covers dollars {formatCurrency(d.breakdown.cumulativeBefore)}–{formatCurrency(d.breakdown.cumulativeAfter)} of
+                            your year-to-date income. Earlier dollars filled the low brackets (and the basic personal amount
+                            shielded the first ~$16,500), so these dollars are taxed at a higher marginal rate.
+                            {' '}Income tax {formatCurrency(d.tax_owed)} ≈ {d.cad_amount > 0 ? Math.round((d.tax_owed / d.cad_amount) * 1000) / 10 : 0}% marginal
+                            (federal {formatCurrency(d.breakdown.fedTax)} + Ontario {formatCurrency(d.breakdown.provTax)}).
+                            CPP room left after this deposit: {formatCurrency(d.breakdown.cppRoomAfter)}.
+                          </span>
+                        </span>
                       )}
                     </td>
                     <td className="py-2 pr-3">{formatCurrency(d.cpp_owed)}</td>
@@ -570,25 +577,6 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                       </button>
                     </td>
                   </tr>
-                  {breakdownFor === d.id && d.breakdown && (
-                    <tr className="border-b border-outline-variant last:border-0">
-                      <td colSpan={8} className="py-2 pr-3">
-                        <div className="text-xs text-on-surface-variant bg-surface-container rounded-lg p-3 flex flex-col gap-1">
-                          <span>
-                            This deposit covers dollars {formatCurrency(d.breakdown.cumulativeBefore)}–{formatCurrency(d.breakdown.cumulativeAfter)} of
-                            your year-to-date income. Earlier dollars filled the low brackets (and the basic personal amount
-                            shielded the first ~$16,500), so these dollars are taxed at a higher marginal rate.
-                          </span>
-                          <span>
-                            Income tax {formatCurrency(d.tax_owed)} ≈ {d.cad_amount > 0 ? Math.round((d.tax_owed / d.cad_amount) * 1000) / 10 : 0}% marginal
-                            (federal {formatCurrency(d.breakdown.fedTax)} + Ontario {formatCurrency(d.breakdown.provTax)}).
-                            CPP room left after this deposit: {formatCurrency(d.breakdown.cppRoomAfter)}.
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  </React.Fragment>
                 ))}
               </tbody>
             </table>
