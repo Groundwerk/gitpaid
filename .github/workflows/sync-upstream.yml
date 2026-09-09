@@ -22,6 +22,8 @@ jobs:
           fetch-depth: 0
       - name: Merge upstream
         run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git remote add upstream https://github.com/Groundwerk/gitpaid.git
           git fetch upstream
           git merge --no-edit -X ours upstream/main
