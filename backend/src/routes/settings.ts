@@ -40,6 +40,7 @@ const saveSettings = async (c: any) => {
     const email = payload?.email;
     let companyId = payload?.companyId;
 
+    const rawBody: any = await c.req.json().catch(() => ({}));
     const {
       legal_name,
       operating_name,
@@ -71,7 +72,7 @@ const saveSettings = async (c: any) => {
       sole_prop_ytd_pensionable = 0,
       sole_prop_ytd_cpp = 0,
       sole_prop_ytd_cpp2 = 0
-    } = await c.req.json();
+    } = rawBody;
 
     const accountType = account_type === 'sole_prop' ? 'sole_prop' : 'company';
 
@@ -244,61 +245,47 @@ const saveSettings = async (c: any) => {
         message: 'Onboarding settings successfully saved'
       });
     } else {
-      // Update existing settings
-      await c.env.DB.prepare(`
-        UPDATE company_settings SET
-          legal_name = ?,
-          operating_name = ?,
-          business_number = ?,
-          address_line1 = ?,
-          city = ?,
-          postal_code = ?,
-          contact_name = ?,
-          contact_email = ?,
-          wsib_number = ?,
-          wsib_rate = ?,
-          eht_exempt = ?,
-          eht_rate = ?,
-          vacation_rate = ?,
-          pay_period = ?,
-          owner_sin = ?,
-          business_type = ?,
-          remittance_frequency = ?,
-          contact_phone = ?,
-          address_line2 = ?,
-          province = ?,
-          override_ei_employer_rate = ?,
-          logo_url = ?,
-          brand_color = ?,
-          use_company_branding = ?
-        WHERE id = ?
-      `).bind(
-        legal_name,
-        operating_name,
-        business_number,
-        address_line1,
-        city,
-        postal_code,
-        contact_name,
-        contact_email,
-        wsib_number,
-        parseFloat(wsib_rate),
-        eht_exempt ? 1 : 0,
-        parseFloat(eht_rate),
-        parseFloat(vacation_rate),
-        pay_period,
-        owner_sin,
-        business_type,
-        remittance_frequency,
-        contact_phone,
-        address_line2,
-        province,
-        parseFloat(override_ei_employer_rate),
-        logo_url || null,
-        brand_color || null,
-        use_company_branding ? 1 : 0,
-        companyId
-      ).run();
+      // Update existing settings: only touch provided fields so partial
+      // payloads touch no unmentioned columns nor bind undefined
+      // (D1 rejects it). account_type is fixed at onboarding and never updatable.
+      const body: any = rawBody ?? {};
+      const textCols = [
+        'legal_name', 'operating_name', 'business_number', 'address_line1',
+        'city', 'postal_code', 'contact_name', 'contact_email', 'wsib_number',
+        'pay_period', 'owner_sin', 'business_type', 'remittance_frequency',
+        'contact_phone', 'address_line2', 'province', 'logo_url', 'brand_color',
+      ];
+      const sets: string[] = [];
+      const vals: any[] = [];
+      for (const col of textCols) {
+        if (body[col] !== undefined) {
+          sets.push(`${col} = ?`);
+          vals.push(body[col]);
+        }
+      }
+      const numCols = ['wsib_rate', 'eht_rate', 'vacation_rate', 'override_ei_employer_rate'] as const;
+      for (const col of numCols) {
+        if (body[col] !== undefined) {
+          const n = parseFloat(body[col]);
+          if (!Number.isFinite(n)) {
+            return c.json({ error: `${col} must be a number` }, 400);
+          }
+          sets.push(`${col} = ?`);
+          vals.push(n);
+        }
+      }
+      for (const col of ['eht_exempt', 'use_company_branding'] as const) {
+        if (body[col] !== undefined) {
+          sets.push(`${col} = ?`);
+          vals.push(body[col] ? 1 : 0);
+        }
+      }
+      if (sets.length === 0) {
+        return c.json({ error: 'Nothing to update' }, 400);
+      }
+      await c.env.DB.prepare(
+        `UPDATE company_settings SET ${sets.join(', ')} WHERE id = ?`
+      ).bind(...vals, companyId).run();
 
       const updated = await c.env.DB.prepare('SELECT * FROM company_settings WHERE id = ?')
         .bind(companyId)

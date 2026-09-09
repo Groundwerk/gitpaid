@@ -7,7 +7,7 @@ const SECRET = 'test-secret-12345';
 
 function makeState() {
   return {
-    settings: { id: 1, legal_name: 'Jane Doe', business_number: null, account_type: 'sole_prop' },
+    settings: { id: 1, legal_name: 'Jane Doe', business_number: null, account_type: 'sole_prop', pay_period: 'bi-weekly' } as Record<string, any>,
     profile: {
       id: 1, company_id: 1, business_number: null, start_date: '2026-08-15',
       province: 'ON', ytd_pensionable_opening: 0, ytd_cpp_opening: 0,
@@ -53,6 +53,13 @@ const mockDb = {
         return { results: [] };
       },
       run: async () => {
+        // D1 parity: real D1 rejects undefined (and NaN) bind values with
+        // D1_TYPE_ERROR. Fail fast here so tests catch it, not production.
+        for (const a of args) {
+          if (a === undefined || (typeof a === 'number' && Number.isNaN(a))) {
+            throw new Error(`D1_TYPE_ERROR: unsupported bind value in: ${sql.slice(0, 80)}`);
+          }
+        }
         if (sql.includes('INSERT INTO company_settings')) {
           return { success: true, meta: { last_row_id: 1 } };
         }
@@ -147,6 +154,13 @@ const mockDb = {
             state.wiseToken.auto_sync = args[0];
             state.wiseToken.last_sync_at = args[1];
           }
+          return { success: true, meta: {} };
+        }
+        if (sql.startsWith('UPDATE company_settings SET')) {
+          const setPart = sql.split('SET')[1].split('WHERE')[0];
+          setPart.split(',').map(s => s.trim().split(' ')[0]).forEach((col, i) => {
+            state.settings[col] = args[i];
+          });
           return { success: true, meta: {} };
         }
         if (sql.includes('INSERT INTO remittance_payments')) {
@@ -279,6 +293,10 @@ describe('soleprop routes', () => {
       body: JSON.stringify({ legal_name: 'Jane Doe' }),
     }, testEnv);
     expect(res.status).toBe(200);
+    // Partial update: touched column changes, everything else preserved
+    expect(state.settings.legal_name).toBe('Jane Doe');
+    expect(state.settings.business_number).toBeNull();
+    expect(state.settings.pay_period).toBe('bi-weekly');
   });
   it('replays surviving shares when the first deposit is voided', async () => {
     const headers = await authHeaders();
