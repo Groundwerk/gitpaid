@@ -6,7 +6,7 @@ interface SolePropReportsViewProps {
   triggerToast: (msg: string, type: 'success' | 'error') => void;
 }
 
-const CSV_HEADER = 'received_date,currency,foreign_amount,fx_rate,fx_date_used,cad_amount,tax_owed,cpp_owed,cpp2_owed,note';
+const CSV_HEADER = 'received_date,currency,foreign_amount,fx_rate,fx_date_used,cad_amount,tax_owed,cpp_owed,cpp2_owed,hst_owed,note';
 
 function csvCell(v: string | number | null): string {
   const s = v === null || v === undefined ? '' : String(v);
@@ -19,7 +19,7 @@ export function buildEarningsCsv(deposits: SolePropDeposit[]): string {
   );
   const lines = rows.map(d => [
     d.received_date, d.currency, d.foreign_amount, d.fx_rate, d.fx_date_used,
-    d.cad_amount, d.tax_owed, d.cpp_owed, d.cpp2_owed, d.note,
+    d.cad_amount, d.tax_owed, d.cpp_owed, d.cpp2_owed, d.hst_owed ?? 0, d.note,
   ].map(csvCell).join(','));
   return [CSV_HEADER, ...lines].join('\n') + '\n';
 }
@@ -31,6 +31,7 @@ interface YearTotals {
   tax: number;
   cpp: number;
   cpp2: number;
+  hst: number;
 }
 
 export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ triggerToast }) => {
@@ -93,12 +94,13 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
   const years = new Map<number, YearTotals>();
   for (const d of overview.deposits) {
     const year = Number(d.received_date.slice(0, 4));
-    const t = years.get(year) ?? { year, count: 0, cad: 0, tax: 0, cpp: 0, cpp2: 0 };
+    const t = years.get(year) ?? { year, count: 0, cad: 0, tax: 0, cpp: 0, cpp2: 0, hst: 0 };
     t.count += 1;
     t.cad = Math.round((t.cad + d.cad_amount) * 100) / 100;
     t.tax = Math.round((t.tax + d.tax_owed) * 100) / 100;
     t.cpp = Math.round((t.cpp + d.cpp_owed) * 100) / 100;
     t.cpp2 = Math.round((t.cpp2 + d.cpp2_owed) * 100) / 100;
+    t.hst = Math.round((t.hst + (d.hst_owed ?? 0)) * 100) / 100;
     years.set(year, t);
   }
   const yearRows = [...years.values()].sort((a, b) => a.year - b.year);
@@ -136,6 +138,7 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
                   <th className="py-2 pr-3">Income tax</th>
                   <th className="py-2 pr-3">CPP</th>
                   <th className="py-2 pr-3">CPP2</th>
+                  <th className="py-2 pr-3">HST</th>
                   <th className="py-2 pr-3">Total owed</th>
                 </tr>
               </thead>
@@ -148,7 +151,8 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
                     <td className="py-2 pr-3">{money(y.tax)}</td>
                     <td className="py-2 pr-3">{money(y.cpp)}</td>
                     <td className="py-2 pr-3">{money(y.cpp2)}</td>
-                    <td className="py-2 pr-3 font-semibold">{money(y.tax + y.cpp + y.cpp2)}</td>
+                    <td className="py-2 pr-3">{money(y.hst)}</td>
+                    <td className="py-2 pr-3 font-semibold">{money(y.tax + y.cpp + y.cpp2 + y.hst)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -173,6 +177,7 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
                   <th className="py-2 pr-3">Tax</th>
                   <th className="py-2 pr-3">CPP</th>
                   <th className="py-2 pr-3">CPP2</th>
+                  <th className="py-2 pr-3">HST</th>
                   <th className="py-2 pr-3">Note</th>
                 </tr>
               </thead>
@@ -186,6 +191,7 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
                     <td className="py-2 pr-3">{money(d.tax_owed)}</td>
                     <td className="py-2 pr-3">{money(d.cpp_owed)}</td>
                     <td className="py-2 pr-3">{money(d.cpp2_owed)}</td>
+                    <td className="py-2 pr-3">{money(d.hst_owed ?? 0)}</td>
                     <td className="py-2 pr-3 text-on-surface-variant">{d.note ?? ''}</td>
                   </tr>
                 ))}

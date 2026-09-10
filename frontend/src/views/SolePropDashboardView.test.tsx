@@ -9,6 +9,7 @@ vi.mock('../utils/api', () => ({ api: {
   createSolePropDeposit: vi.fn(),
   voidSolePropDeposit: vi.fn(),
   paySolePropInstalment: vi.fn(),
+  paySolePropGstRemittance: vi.fn(),
   updateSolePropProfile: vi.fn(),
   getWiseStatus: vi.fn(),
   getWisePreview: vi.fn(),
@@ -19,10 +20,11 @@ vi.mock('../utils/api', () => ({ api: {
 
 const overview: any = {
   profile: { business_number: null, start_date: '2026-08-15' },
-  totals: { cad: 33000, tax: 5000, cpp: 3000, cpp2: 0 },
+  totals: { cad: 33000, tax: 5000, cpp: 3000, cpp2: 0, hst: 0 },
   deposits: [],
   upcoming: [{ id: 1, tax_year: 2026, due_date: '2027-04-30', kind: 'annual',
     tax_amount: 5000, cpp_amount: 3000, cpp2_amount: 0, total_amount: 8000, paid: 0, paid_date: null }],
+  gst_remittances: [],
   gst: { rollingTotal: 33000, crossed: true, crossingDate: '2027-02-10', deadline: '2027-03-11', hasBN: false },
 };
 
@@ -40,11 +42,26 @@ describe('SolePropDashboardView', () => {
   });
 
   it('mark-paid calls the API and refetches', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(true).mockReturnValueOnce(false);
     vi.mocked(api.paySolePropInstalment).mockResolvedValue({ instalment: { ...overview.upcoming[0], paid: 1 } });
     render(<SolePropDashboardView triggerToast={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: /mark paid/i }));
     await waitFor(() => expect(api.paySolePropInstalment).toHaveBeenCalledWith(1, undefined));
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/opening balances will lock/i);
+    expect(api.updateSolePropProfile).not.toHaveBeenCalled();
     expect(api.getSolePropOverview).toHaveBeenCalledTimes(2);
+    confirmSpy.mockRestore();
+  });
+
+  it('offers to hide openings after the start-year annual is paid', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.paySolePropInstalment).mockResolvedValue({ instalment: { ...overview.upcoming[0], paid: 1 } });
+    vi.mocked(api.updateSolePropProfile).mockResolvedValue({ profile: { ...overview.profile, openings_hidden: 1 } });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /mark paid/i }));
+    await waitFor(() => expect(api.updateSolePropProfile).toHaveBeenCalledWith({ openings_hidden: 1 }));
+    expect(confirmSpy.mock.calls[1][0]).toMatch(/hide 2026 opening/i);
+    confirmSpy.mockRestore();
   });
   it('collapses later instalments behind a summary', async () => {
     vi.mocked(api.getSolePropOverview).mockResolvedValue({
@@ -154,6 +171,53 @@ describe('SolePropDashboardView', () => {
     vi.mocked(api.getWiseStatus).mockResolvedValue({ connected: true, last4: 'c123', label: null, updated_at: 'x', autoSync: false, employer: null });
     render(<SolePropDashboardView triggerToast={() => {}} />);
     expect(await screen.findByText(/auto-sync not enabled/i)).toBeInTheDocument();
+  });
+
+  it('shows estimated HST on the overview', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      totals: { ...overview.totals, hst: 130 },
+    });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    expect(await screen.findByText(/Est\. HST\/GST owed/i)).toBeInTheDocument();
+    expect(screen.getByText('$130.00')).toBeInTheDocument();
+  });
+
+  it('computes HST dollars from a taxable-share percent and sends them on save', async () => {
+    vi.mocked(api.createSolePropDeposit).mockResolvedValue({ deposit: { cad_amount: 1000 } as any, overview });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByLabelText(/amount paid/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/currency/i), { target: { value: 'CAD' } });
+    fireEvent.change(screen.getByLabelText(/HST %/i), { target: { value: '60' } });
+    expect((screen.getByLabelText(/HST \$/i) as HTMLInputElement).value).toBe('78');
+    fireEvent.click(screen.getByRole('button', { name: /record deposit/i }));
+    await waitFor(() => expect(api.createSolePropDeposit).toHaveBeenCalledWith(
+      expect.objectContaining({ foreign_amount: 1000, currency: 'CAD', hst_owed: 78 })
+    ));
+  });
+
+  it('clears the percent when HST dollars are typed', async () => {
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    fireEvent.change(await screen.findByLabelText(/HST %/i), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText(/HST \$/i), { target: { value: '50' } });
+    expect((screen.getByLabelText(/HST %/i) as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText(/HST \$/i) as HTMLInputElement).value).toBe('50');
+  });
+
+  it('shows a GST remittance row and marks it paid', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      totals: { ...overview.totals, hst: 130 },
+      gst_remittances: [{
+        id: 9, tax_year: 2026, due_date: '2027-06-15', amount: 130, paid: 0, paid_date: null,
+      }],
+    });
+    vi.mocked(api.paySolePropGstRemittance).mockResolvedValue({ remittance: { id: 9, paid: 1 } as any });
+    render(<SolePropDashboardView triggerToast={() => {}} />);
+    expect(await screen.findByText(/GST\/HST remittance/i)).toBeInTheDocument();
+    expect(screen.getByText(/due 2027-06-15/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /mark gst paid/i }));
+    await waitFor(() => expect(api.paySolePropGstRemittance).toHaveBeenCalledWith(9, undefined));
   });
 
 });

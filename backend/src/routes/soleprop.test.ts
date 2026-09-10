@@ -11,13 +11,14 @@ function makeState() {
     profile: {
       id: 1, company_id: 1, business_number: null, start_date: '2026-08-15',
       province: 'ON', ytd_pensionable_opening: 0, ytd_cpp_opening: 0,
-      ytd_cpp2_opening: 0, instalment_mode: 'quarterly',
+      ytd_cpp2_opening: 0, instalment_mode: 'quarterly', openings_hidden: 0,
     },
     deposits: [] as any[],
     instalments: [] as any[],
     remittances: [] as any[],
+    gstRemittances: [] as any[],
     wiseToken: null as any,
-    ids: { deposit: 0, instalment: 0, remittance: 0 },
+    ids: { deposit: 0, instalment: 0, remittance: 0, gst: 0 },
   };
 }
 let state = makeState();
@@ -31,6 +32,9 @@ const mockDb = {
         if (sql.includes('FROM sole_prop_deposits WHERE id')) {
           return state.deposits.find((d) => d.id === args[0] && d.company_id === args[1]) ?? null;
         }
+        if (sql.includes('FROM sole_prop_gst_remittances WHERE id')) {
+          return state.gstRemittances.find((d) => d.id === args[0] && d.company_id === args[1]) ?? null;
+        }
         if (sql.includes('FROM sole_prop_instalments WHERE id')) {
           return state.instalments.find((r) => r.id === args[0] && r.company_id === args[1]) ?? null;
         }
@@ -40,6 +44,9 @@ const mockDb = {
       all: async () => {
         if (sql.includes('FROM sole_prop_deposits')) {
           return { results: state.deposits.filter((d) => d.company_id === args[0]) };
+        }
+        if (sql.includes('FROM sole_prop_gst_remittances')) {
+          return { results: state.gstRemittances.filter((d) => d.company_id === args[0]) };
         }
         if (sql.includes('FROM sole_prop_instalments')) {
           return { results: state.instalments.filter((r) => r.company_id === args[0]) };
@@ -77,13 +84,32 @@ const mockDb = {
             id, company_id: args[0], received_date: args[1], foreign_amount: args[2],
             currency: args[3], fx_rate: args[4], fx_date_used: args[5], cad_amount: args[6],
             tax_owed: 0, cpp_owed: 0, cpp2_owed: 0, note: args[7] ?? null,
-            wise_transfer_id: args[8] ?? null, voided: 0,
+            wise_transfer_id: args[8] ?? null, hst_owed: args[9] ?? 0, voided: 0,
           });
           return { success: true, meta: { last_row_id: id } };
         }
         if (sql.includes('SET voided = 1')) {
           const d = state.deposits.find((x) => x.id === args[0] && x.company_id === args[1]);
           if (d) d.voided = 1;
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('INSERT OR IGNORE INTO sole_prop_gst_remittances')) {
+          const exists = state.gstRemittances.some((r) => r.company_id === args[0] && r.tax_year === args[1]);
+          if (!exists) {
+            state.gstRemittances.push({
+              id: ++state.ids.gst, company_id: args[0], tax_year: args[1],
+              due_date: args[2], amount: 0, paid: 0, paid_date: null,
+            });
+          }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('UPDATE sole_prop_gst_remittances SET amount')) {
+          const r = state.gstRemittances.find((x) => x.company_id === args[1] && x.tax_year === args[2] && x.paid === 0);
+          if (r) r.amount = args[0];
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('DELETE FROM sole_prop_gst_remittances')) {
+          state.gstRemittances = state.gstRemittances.filter((x) => !(x.id === args[0] && x.company_id === args[1]));
           return { success: true, meta: {} };
         }
         if (sql.includes('INSERT OR IGNORE INTO sole_prop_instalments')) {
@@ -120,9 +146,15 @@ const mockDb = {
           state.profile.ytd_pensionable_opening = args[1];
           state.profile.ytd_cpp_opening = args[2];
           state.profile.ytd_cpp2_opening = args[3];
+          if (args.length > 4) state.profile.openings_hidden = args[4];
           return { success: true, meta: {} };
         }
-        if (sql.includes('SET paid = 1')) {
+        if (sql.includes('UPDATE sole_prop_gst_remittances SET paid')) {
+          const r = state.gstRemittances.find((x) => x.id === args[1] && x.company_id === args[2]);
+          if (r) { r.paid = 1; r.paid_date = args[0]; }
+          return { success: true, meta: {} };
+        }
+        if (sql.includes('UPDATE sole_prop_instalments SET paid')) {
           const r = state.instalments.find((x) => x.id === args[1] && x.company_id === args[2]);
           if (r) { r.paid = 1; r.paid_date = args[0]; }
           return { success: true, meta: {} };
@@ -165,7 +197,8 @@ const mockDb = {
         }
         if (sql.includes('INSERT INTO remittance_payments')) {
           state.remittances.push({
-            id: ++state.ids.remittance, company_id: args[0], type: 'INSTALMENT',
+            id: ++state.ids.remittance, company_id: args[0],
+            type: sql.includes("'GST'") ? 'GST' : 'INSTALMENT',
             payment_date: args[1], amount: args[2], period_end: args[3],
           });
           return { success: true, meta: {} };
@@ -260,6 +293,8 @@ describe('soleprop routes', () => {
     const json = await res.json() as any;
     expect(json.deposit.cpp_owed).toBe(0);
     expect(json.deposit.cpp2_owed).toBe(0);
+    // $5,000 USD × 1.38 = $6,900 CAD, stacked on $190k opening — not the 0–41k bracket.
+    expect(json.deposit.tax_owed).toBeGreaterThan(2000);
   });
 
   it('void excludes the deposit and reallocates', async () => {
@@ -401,6 +436,38 @@ describe('soleprop routes', () => {
     const json = await overview.json() as any;
     expect(json.totals.cpp).toBe(404.6);
     expect(json.totals.tax).toBe(0);
+  });
+
+  it('rejects opening edits after the start-year annual is paid', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 5000, currency: 'USD' }),
+    }, testEnv);
+    const annual = ((await created.json()) as any).overview.upcoming[0];
+    await app.request(`/api/soleprop/instalments/${annual.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-04-15' }),
+    }, testEnv);
+    const res = await app.request('/api/soleprop/profile', {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ytd_pensionable_opening: 10000 }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+    const json = await res.json() as any;
+    expect(json.error).toMatch(/locked/i);
+    expect(state.profile.ytd_pensionable_opening).toBe(0);
+  });
+
+  it('hides openings without changing the numbers', async () => {
+    state.profile.ytd_pensionable_opening = 104280;
+    const res = await app.request('/api/soleprop/profile', {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify({ openings_hidden: 1 }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    expect(state.profile.openings_hidden).toBe(1);
+    expect(state.profile.ytd_pensionable_opening).toBe(104280);
   });
 
   it('rejects CPP openings above the annual maximum', async () => {
@@ -665,6 +732,95 @@ describe('soleprop routes', () => {
     }, testEnv);
     expect(res.status).toBe(200);
     expect(state.wiseToken.employer_key).toBe('deel inc');
+  });
+
+  it('peels HST from income so tax and CPP run on the remainder', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 10000, currency: 'CAD', hst_owed: 1300 }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.cad_amount).toBe(10000);
+    expect(json.deposit.hst_owed).toBe(1300);
+    // Income 8700: below BPA so no tax; CPP (8700-3500)=5200 x11.9% = 618.80
+    expect(json.deposit.tax_owed).toBe(0);
+    expect(json.deposit.cpp_owed).toBe(618.8);
+    expect(json.overview.totals.hst).toBe(1300);
+    expect(json.overview.gst_remittances).toEqual([
+      expect.objectContaining({ tax_year: 2026, due_date: '2027-06-15', amount: 1300, paid: 0 }),
+    ]);
+  });
+
+  it('accepts a taxable-share percent and stores the resulting dollars', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD', hst_portion: 60 }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.deposit.hst_owed).toBe(78);
+  });
+
+  it('rejects HST greater than the landed CAD amount', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD', hst_owed: 1001 }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+    const json = await res.json() as any;
+    expect(json.error).toBe("HST can't be more than this deposit's CAD amount.");
+  });
+
+  it('rejects HST percent above 100', async () => {
+    const res = await app.request('/api/soleprop/deposits', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD', hst_portion: 12345 }),
+    }, testEnv);
+    expect(res.status).toBe(400);
+    const json = await res.json() as any;
+    expect(json.error).toBe("HST % can't be more than 100.");
+  });
+
+  it('marks a GST remittance paid and mirrors remittance_payments', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD', hst_owed: 130 }),
+    }, testEnv);
+    const gst = ((await created.json()) as any).overview.gst_remittances[0];
+    const res = await app.request(`/api/soleprop/gst-remittances/${gst.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-06-10' }),
+    }, testEnv);
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.remittance.paid).toBe(1);
+    expect(json.remittance.paid_date).toBe('2027-06-10');
+    expect(state.remittances.some((r: any) => r.type === 'GST' && r.amount === 130)).toBe(true);
+  });
+
+  it('freezes a paid GST remittance when later deposits arrive', async () => {
+    const headers = await authHeaders();
+    const created = await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-09-01', foreign_amount: 1000, currency: 'CAD', hst_owed: 130 }),
+    }, testEnv);
+    const gst = ((await created.json()) as any).overview.gst_remittances[0];
+    await app.request(`/api/soleprop/gst-remittances/${gst.id}/pay`, {
+      method: 'POST', headers, body: JSON.stringify({ paid_date: '2027-06-10' }),
+    }, testEnv);
+    await app.request('/api/soleprop/deposits', {
+      method: 'POST', headers,
+      body: JSON.stringify({ received_date: '2026-10-01', foreign_amount: 1000, currency: 'CAD', hst_owed: 130 }),
+    }, testEnv);
+    const overview = await (await app.request('/api/soleprop/overview', { headers }, testEnv)).json() as any;
+    const paid = overview.gst_remittances.find((r: any) => r.id === gst.id);
+    expect(paid.amount).toBe(130);
+    expect(paid.paid).toBe(1);
   });
 
 });

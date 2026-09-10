@@ -44,6 +44,8 @@ export interface SolePropProfile {
   ytd_cpp_opening: number;
   ytd_cpp2_opening: number;
   instalment_mode: string;
+  openings_hidden?: number;
+  openings_locked?: boolean;
 }
 
 export interface SolePropDepositBreakdown {
@@ -65,6 +67,7 @@ export interface SolePropDeposit {
   tax_owed: number;
   cpp_owed: number;
   cpp2_owed: number;
+  hst_owed: number;
   note: string | null;
   voided: number;
   breakdown?: SolePropDepositBreakdown | null;
@@ -83,6 +86,15 @@ export interface SolePropInstalment {
   paid_date: string | null;
 }
 
+export interface SolePropGstRemittance {
+  id: number;
+  tax_year: number;
+  due_date: string;
+  amount: number;
+  paid: number;
+  paid_date: string | null;
+}
+
 export interface WiseStatus {
   connected: boolean;
   last4: string | null;
@@ -94,9 +106,10 @@ export interface WiseStatus {
 
 export interface SolePropOverview {
   profile: SolePropProfile;
-  totals: { cad: number; tax: number; cpp: number; cpp2: number };
+  totals: { cad: number; tax: number; cpp: number; cpp2: number; hst: number };
   deposits: SolePropDeposit[];
   upcoming: SolePropInstalment[];
+  gst_remittances: SolePropGstRemittance[];
   gst: { rollingTotal: number; crossed: boolean; crossingDate: string | null; deadline: string | null; hasBN: boolean };
 }
 

@@ -27,9 +27,29 @@ describe('calculateSolePropObligations', () => {
     });
     expect(out.cpp).toBe(0);
     expect(out.cpp2).toBe(0);
-    // Cumulative tax on 200000: federal 37544.25 + Ontario 16864.53 = 54408.78;
-    // per-deposit tax = 54408.78 - 40000 prior = 14408.78
-    expect(out.incomeTax).toBe(14408.78);
+    // Gitpaid $200k stacked on $190k opening, minus $40k already on prior rows.
+    expect(out.incomeTax).toBe(48255.99);
+  });
+
+  it('taxes Gitpaid dollars at the marginal rate above the pensionable opening', () => {
+    const fromZero = calculateSolePropObligations({
+      cumulativeCad: 10000,
+      priorTax: 0, priorCpp: 0, priorCpp2: 0,
+      ytdPensionableOpening: 0, ytdCppOpening: 0, ytdCpp2Opening: 0,
+      taxYear: 2026,
+    });
+    const stacked = calculateSolePropObligations({
+      cumulativeCad: 10000,
+      priorTax: 0, priorCpp: 0, priorCpp2: 0,
+      ytdPensionableOpening: 104000, ytdCppOpening: 8460.9, ytdCpp2Opening: 832,
+      taxYear: 2026,
+    });
+    expect(fromZero.incomeTax).toBe(0);
+    // 104k already uses BPA and the first brackets. Next $10k sits in
+    // federal 20.5% and Ontario 9.15% → $2,050 + $915.
+    expect(stacked.incomeTax).toBe(2965);
+    expect(stacked.cpp).toBe(0);
+    expect(stacked.cpp2).toBe(0);
   });
 
   it('applies CPP2 inside the YMPE-YAMPE band (2026)', () => {
@@ -72,7 +92,7 @@ describe('calculateSolePropObligations', () => {
     expect(out.total).toBe(0);
   });
 });
-import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter, ledgerBreakdown, validateOpenings } from './solePropEngine';
+import { buildInstalmentSchedule, allocateToInstalments, gstStatus, nextQuarterlyAfter, ledgerBreakdown, validateOpenings, hstFromPortion, depositIncome, allocateGstRemittances } from './solePropEngine';
 
 describe('buildInstalmentSchedule', () => {
   it('gives an August 2026 start an annual row then CRA quarterly rows', () => {
@@ -141,6 +161,49 @@ describe('gstStatus', () => {
     expect(status.crossingDate).toBeNull();
     expect(status.deadline).toBeNull();
   });
+
+  it('counts consideration net of HST peeled off the deposit', () => {
+    const status = gstStatus(
+      [
+        { received_date: '2026-09-15', cad_amount: 20000, hst_owed: 0, voided: 0 },
+        { received_date: '2027-02-10', cad_amount: 11000, hst_owed: 1300, voided: 0 },
+      ],
+      '2027-02-10'
+    );
+    expect(status.rollingTotal).toBe(29700);
+    expect(status.crossed).toBe(false);
+    expect(status.crossingDate).toBeNull();
+  });
+});
+
+describe('hstFromPortion', () => {
+  it('peels Ontario 13% times the taxable share of landed CAD', () => {
+    expect(hstFromPortion(1000, 100)).toBe(130);
+    expect(hstFromPortion(1000, 60)).toBe(78);
+  });
+});
+
+describe('depositIncome', () => {
+  it('subtracts HST from landed CAD', () => {
+    expect(depositIncome(1000, 130)).toBe(870);
+    expect(depositIncome(1000, 0)).toBe(1000);
+  });
+});
+
+describe('allocateGstRemittances', () => {
+  it('groups live HST by calendar year due the following June 15', () => {
+    const rows = allocateGstRemittances([
+      { received_date: '2026-09-01', hst_owed: 130, voided: 0 },
+      { received_date: '2026-10-01', hst_owed: 78, voided: 0 },
+      { received_date: '2026-11-01', hst_owed: 999, voided: 1 },
+      { received_date: '2027-01-15', hst_owed: 50, voided: 0 },
+      { received_date: '2027-03-01', hst_owed: 0, voided: 0 },
+    ]);
+    expect(rows).toEqual([
+      { tax_year: 2026, due_date: '2027-06-15', amount: 208 },
+      { tax_year: 2027, due_date: '2028-06-15', amount: 50 },
+    ]);
+  });
 });
 
 describe('nextQuarterlyAfter', () => {
@@ -187,6 +250,16 @@ describe('ledgerBreakdown', () => {
     // CPP room drains as pensionable accumulates
     expect(rows[0].cppRoomAfter).toBeLessThan(8460.9);
     expect(rows[1].cppRoomAfter).toBeLessThan(rows[0].cppRoomAfter);
+  });
+
+  it('starts the dollar window at the pensionable opening', () => {
+    const rows = ledgerBreakdown(
+      [{ cad: 10000, date: '2026-09-01' }],
+      { ytdPensionableOpening: 104000, ytdCppOpening: 8460.9 }
+    );
+    expect(rows[0]).toMatchObject({
+      cumulativeBefore: 104000, cumulativeAfter: 114000, fedTax: 2050, provTax: 915,
+    });
   });
 });
 

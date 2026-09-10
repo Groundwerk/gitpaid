@@ -224,6 +224,7 @@ Choose **Register as sole proprietor** during onboarding for bookkeeping and CRA
 - **Deposits ledger**: manually record amounts paid in 30 foreign currencies (USD default); CAD conversion via frankfurter.dev, stored with the rate used (editable before save, immutable after).
 - **Tax + CPP/CPP2 engine**: 2025/2026 federal and Ontario progressive brackets, self-employed CPP (2x rate to YMPE) and CPP2 (YMPE to YAMPE), EI exempt. Opening YTD balances are editable in Settings; every deposit/void recomputes all shares.
 - **Instalments**: first calendar year accrues to a single annual balance due April 30; quarterly instalments (Mar 15 / Jun 15 / Sep 15 / Dec 15) start only after the annual balance is paid. Mark-paid tracking included.
-- **GST/HST threshold**: rolling 4-quarter CAD revenue tracked against the $30,000 registration threshold, with a blocking banner and 29-day countdown until a Business Number is saved.
+- **GST/HST threshold**: rolling 4-quarter CAD revenue (net of HST peeled off deposits) tracked against the $30,000 registration threshold, with a blocking banner and 29-day countdown until a Business Number is saved.
+- **HST set-aside**: optional HST % or $ on a manual deposit peels that amount out of income for tax/CPP, and accumulates a separate GST remittance due June 15.
 - **Earnings report**: per-tax-year totals plus per-deposit detail with CSV export; hovering a tax/CPP amount shows the marginal breakdown behind it.
 - **Wise integration**: save a personal API token (verified live, AES-GCM encrypted at rest, never returned by the API) in Settings, then sync incoming statement credits, designate the employer sender, import as deposits, and enable daily auto-sync (noon UTC cron).

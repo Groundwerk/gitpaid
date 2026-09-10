@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { SolePropOverview } from '../types';
 import { api } from '../utils/api';
+import { openingYear } from '../utils/helpers';
 
 interface SolePropSettingsViewProps {
   triggerToast: (msg: string, type: 'success' | 'error') => void;
@@ -94,11 +95,15 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
     let payload: { ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number };
     try {
       payload = {
-        ytd_pensionable_opening: toNum(openings.pens, 'Pensionable earnings'),
+        ytd_pensionable_opening: toNum(openings.pens, 'Income already earned'),
         ytd_cpp_opening: toNum(openings.cpp, 'CPP paid'),
         ytd_cpp2_opening: toNum(openings.cpp2, 'CPP2 paid'),
       };
     } catch {
+      return;
+    }
+    if (overview?.profile.openings_locked) {
+      triggerToast('Opening balances are locked.', 'error');
       return;
     }
     if (payload.ytd_pensionable_opening === undefined && payload.ytd_cpp_opening === undefined && payload.ytd_cpp2_opening === undefined) {
@@ -124,6 +129,19 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
       if (onSettingsUpdate) onSettingsUpdate();
     } catch (error: any) {
       triggerToast(error.message || 'Failed to save openings.', 'error');
+    } finally {
+      setSavingOpenings(false);
+    }
+  };
+
+  const handleToggleHidden = async (hidden: 0 | 1) => {
+    try {
+      setSavingOpenings(true);
+      await api.updateSolePropProfile({ openings_hidden: hidden });
+      setOverview(await api.getSolePropOverview());
+      if (onSettingsUpdate) onSettingsUpdate();
+    } catch (error: any) {
+      triggerToast(error.message || 'Failed to update opening balances.', 'error');
     } finally {
       setSavingOpenings(false);
     }
@@ -247,38 +265,80 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
       </div>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">
-        <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2">2026 Opening Balances</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {([
-            ['Pensionable earnings ($)', 'pens', overview.profile.ytd_pensionable_opening],
-            ['CPP paid ($)', 'cpp', overview.profile.ytd_cpp_opening],
-            ['CPP2 paid ($)', 'cpp2', overview.profile.ytd_cpp2_opening],
-          ] as const).map(([label, key, current]) => (
-            <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor={`sps-${key}`}>
-                {label}
-              </label>
-              <input
-                id={`sps-${key}`} type="number" min="0" step="0.01"
-                value={openings[key]} placeholder={String(current ?? 0)}
-                onChange={(e) => setOpenings(prev => ({ ...prev, [key]: e.target.value }))}
-                className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
-              />
+        <h2 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-2">
+          {openingYear(p.start_date)} Opening Balances
+        </h2>
+        {p.openings_hidden ? (
+          <>
+            <p className="text-xs text-on-surface-variant">
+              Hidden because the {openingYear(p.start_date)} annual balance they fed is marked paid.
+              Values stay locked.
+            </p>
+            <div>
+              <button
+                type="button" onClick={() => handleToggleHidden(0)} disabled={savingOpenings}
+                className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold hover:border-highlight transition-colors disabled:opacity-50"
+              >
+                Show {openingYear(p.start_date)} opening balances
+              </button>
             </div>
-          ))}
-        </div>
-        <p className="text-xs text-on-surface-variant">
-          Amounts earned and CPP paid outside Gitpaid this year. Saving recomputes every deposit and instalment.
-          Leave blank to keep the current values.
-        </p>
-        <div>
-          <button
-            type="button" onClick={handleSaveOpenings} disabled={savingOpenings}
-            className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            Save openings
-          </button>
-        </div>
+          </>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {([
+                ['Income already earned ($)', 'pens', overview.profile.ytd_pensionable_opening],
+                ['CPP paid ($)', 'cpp', overview.profile.ytd_cpp_opening],
+                ['CPP2 paid ($)', 'cpp2', overview.profile.ytd_cpp2_opening],
+              ] as const).map(([label, key, current]) => (
+                <div key={key} className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor={`sps-${key}`}>
+                    {label}
+                  </label>
+                  <input
+                    id={`sps-${key}`} type="number" min="0" step="0.01"
+                    value={p.openings_locked ? String(current ?? 0) : openings[key]}
+                    placeholder={String(current ?? 0)}
+                    disabled={!!p.openings_locked}
+                    onChange={(e) => setOpenings(prev => ({ ...prev, [key]: e.target.value }))}
+                    className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full disabled:opacity-60"
+                  />
+                </div>
+              ))}
+            </div>
+            {p.openings_locked ? (
+              <>
+                <p className="text-xs text-on-surface-variant">
+                  {openingYear(p.start_date)} opening balances are locked. The {openingYear(p.start_date)} annual
+                  balance they fed is marked paid, so changing them wouldn&apos;t change what you remitted.
+                </p>
+                <div>
+                  <button
+                    type="button" onClick={() => handleToggleHidden(1)} disabled={savingOpenings}
+                    className="h-10 px-4 rounded-lg border border-outline-variant text-sm font-bold hover:border-highlight transition-colors disabled:opacity-50"
+                  >
+                    Hide from Settings
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-on-surface-variant">
+                  Income already earned this year, plus CPP paid outside Gitpaid. Saving recomputes tax, CPP, and instalments.
+                  Leave blank to keep the current values.
+                </p>
+                <div>
+                  <button
+                    type="button" onClick={handleSaveOpenings} disabled={savingOpenings}
+                    className="h-10 px-4 rounded-lg bg-highlight text-on-highlight text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    Save openings
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">
