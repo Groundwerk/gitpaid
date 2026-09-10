@@ -350,12 +350,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               />
             </div>
             <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b border-outline-variant pb-1 mt-2">
-              2026 Amounts Already Paid Outside Gitpaid
+              {sp.start_date.slice(0, 4) || new Date().getFullYear()} Amounts Already Paid Outside Gitpaid
             </h3>
             <div className="grid md:grid-cols-3 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="sp_ytd_pensionable">
-                  Pensionable Earnings ($)
+                  Income already earned ($)
                 </label>
                 <input
                   type="number"

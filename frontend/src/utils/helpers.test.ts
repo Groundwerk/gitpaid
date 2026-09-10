@@ -7,7 +7,9 @@ import {
   cleanPhone,
   formatPhone,
   cleanPostalCode,
-  formatPostalCode
+  formatPostalCode,
+  hstFromPortion,
+  openingYear,
 } from './helpers';
 
 describe('Formatting and Cleaning Helpers', () => {
@@ -67,6 +69,20 @@ describe('Formatting and Cleaning Helpers', () => {
       expect(formatPostalCode('M5H2Y2')).toBe('M5H 2Y2');
       expect(formatPostalCode('M5H')).toBe('M5H');
       expect(formatPostalCode('M5H2')).toBe('M5H 2');
+    });
+  });
+
+  describe('HST portion', () => {
+    it('peels Ontario 13% times the taxable share of landed CAD', () => {
+      expect(hstFromPortion(1000, 100)).toBe(130);
+      expect(hstFromPortion(1000, 60)).toBe(78);
+    });
+  });
+
+  describe('openingYear', () => {
+    it('reads the calendar year from start_date', () => {
+      expect(openingYear('2025-03-01')).toBe(2025);
+      expect(openingYear('2026-08-15')).toBe(2026);
     });
   });
 });

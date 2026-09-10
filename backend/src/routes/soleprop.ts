@@ -8,6 +8,9 @@ import {
   nextQuarterlyAfter,
   ledgerBreakdown,
   validateOpenings,
+  hstFromPortion,
+  depositIncome,
+  allocateGstRemittances,
 } from '../services/solePropEngine';
 
 const router = new Hono<{
@@ -60,6 +63,16 @@ async function liveDeposits(db: any, companyId: number) {
   return rows.filter((d) => !d.voided);
 }
 
+function openingYear(startDate: string): number {
+  const y = Number(String(startDate).slice(0, 4));
+  return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear();
+}
+
+function startYearAnnualPaid(instalments: any[], startDate: string): boolean {
+  const year = openingYear(startDate);
+  return instalments.some((r) => r.kind === 'annual' && Number(r.tax_year) === year && r.paid);
+}
+
 async function buildOverview(db: any, companyId: number, profile: any) {
   const deposits = await liveDeposits(db, companyId);
   const totals = {
@@ -67,33 +80,47 @@ async function buildOverview(db: any, companyId: number, profile: any) {
     tax: round2(deposits.reduce((s, d) => s + d.tax_owed, 0)),
     cpp: round2(deposits.reduce((s, d) => s + d.cpp_owed, 0)),
     cpp2: round2(deposits.reduce((s, d) => s + d.cpp2_owed, 0)),
+    hst: round2(deposits.reduce((s, d) => s + (d.hst_owed || 0), 0)),
   };
   const instRes = await db
     .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ? ORDER BY due_date ASC')
     .bind(companyId)
     .all() as any;
+  const gstRes = await db
+    .prepare('SELECT * FROM sole_prop_gst_remittances WHERE company_id = ? ORDER BY due_date ASC')
+    .bind(companyId)
+    .all() as any;
   const gst = gstStatus(
-    deposits.map((d) => ({ received_date: d.received_date, cad_amount: d.cad_amount, voided: 0 })),
+    deposits.map((d) => ({
+      received_date: d.received_date, cad_amount: d.cad_amount,
+      hst_owed: d.hst_owed || 0, voided: 0,
+    })),
     todayStr()
   );
   const slices = ledgerBreakdown(
-    deposits.map((d) => ({ cad: d.cad_amount, date: d.received_date })),
+    deposits.map((d) => ({ cad: depositIncome(d.cad_amount, d.hst_owed || 0), date: d.received_date })),
     {
       ytdPensionableOpening: profile.ytd_pensionable_opening ?? 0,
       ytdCppOpening: profile.ytd_cpp_opening ?? 0,
     }
   );
+  const instalments = instRes?.results ?? [];
   return {
-    profile,
+    profile: {
+      ...profile,
+      openings_hidden: profile.openings_hidden ? 1 : 0,
+      openings_locked: startYearAnnualPaid(instalments, profile.start_date),
+    },
     totals,
     deposits: deposits.map((d, idx) => ({
       id: d.id, received_date: d.received_date, foreign_amount: d.foreign_amount,
       currency: d.currency, fx_rate: d.fx_rate, fx_date_used: d.fx_date_used,
       cad_amount: d.cad_amount, tax_owed: d.tax_owed, cpp_owed: d.cpp_owed,
-      cpp2_owed: d.cpp2_owed, note: d.note, voided: d.voided,
+      cpp2_owed: d.cpp2_owed, hst_owed: d.hst_owed || 0, note: d.note, voided: d.voided,
       breakdown: slices[idx] ?? null,
     })),
-    upcoming: instRes?.results ?? [],
+    upcoming: instalments,
+    gst_remittances: gstRes?.results ?? [],
     gst: { ...gst, hasBN: !!profile.business_number },
   };
 }
@@ -124,8 +151,14 @@ async function reallocate(db: any, companyId: number, profile: any) {
   ];
   if (gateOpen) {
     const quarterlies = existing.filter((r) => r.kind === 'quarterly');
-    const hasUpcoming = quarterlies.some((r) => r.paid !== 1 && r.due_date >= today);
-    if (!hasUpcoming) {
+    const nextCra = nextQuarterlyAfter(today);
+    const earliestUpcoming = quarterlies
+      .filter((r) => r.paid !== 1 && r.due_date >= today)
+      .map((r) => r.due_date)
+      .sort()[0];
+    if (earliestUpcoming && earliestUpcoming <= nextCra) {
+      wanted.push({ tax_year: Number(earliestUpcoming.slice(0, 4)), due_date: earliestUpcoming, kind: 'quarterly' });
+    } else {
       const latest = quarterlies.map((r) => r.due_date).sort().pop();
       const base = [today, latest ?? today].sort().pop() as string;
       const due = nextQuarterlyAfter(base);
@@ -179,6 +212,38 @@ async function reallocate(db: any, companyId: number, profile: any) {
         .run();
     }
   }
+  await reallocateGst(db, companyId);
+}
+
+async function reallocateGst(db: any, companyId: number) {
+  const deposits = await liveDeposits(db, companyId);
+  const alloc = allocateGstRemittances(
+    deposits.map((d) => ({ received_date: d.received_date, hst_owed: d.hst_owed || 0, voided: 0 }))
+  );
+  const existingRes = await db
+    .prepare('SELECT * FROM sole_prop_gst_remittances WHERE company_id = ?')
+    .bind(companyId)
+    .all() as any;
+  const existing: any[] = existingRes?.results ?? [];
+  const wantedYears = new Set(alloc.map((r) => r.tax_year));
+  for (const row of alloc) {
+    await db
+      .prepare('INSERT OR IGNORE INTO sole_prop_gst_remittances (company_id, tax_year, due_date) VALUES (?, ?, ?)')
+      .bind(companyId, row.tax_year, row.due_date)
+      .run();
+    await db
+      .prepare('UPDATE sole_prop_gst_remittances SET amount = ? WHERE company_id = ? AND tax_year = ? AND paid = 0')
+      .bind(row.amount, companyId, row.tax_year)
+      .run();
+  }
+  for (const row of existing) {
+    if (!row.paid && !wantedYears.has(row.tax_year)) {
+      await db
+        .prepare('DELETE FROM sole_prop_gst_remittances WHERE id = ? AND company_id = ?')
+        .bind(row.id, companyId)
+        .run();
+    }
+  }
 }
 
 async function fetchCadRate(currency: string, date: string): Promise<{ rate: number; dateUsed: string } | null> {
@@ -207,11 +272,17 @@ function validDate(s: any): boolean {
 
 // GET /api/soleprop/overview
 router.get('/overview', async (c) => {
-  const companyId = getCompanyId(c);
-  if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
-  const ws = await loadWorkspace(c.env.DB, companyId);
-  if ('error' in ws) return c.json({ error: ws.error }, ws.status);
-  return c.json(await buildOverview(c.env.DB, companyId, ws.profile));
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    await recomputeDeposits(c.env.DB, companyId, ws.profile);
+    await reallocate(c.env.DB, companyId, ws.profile);
+    return c.json(await buildOverview(c.env.DB, companyId, ws.profile));
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 // GET /api/soleprop/fx-preview?date=YYYY-MM-DD&currency=USD
@@ -239,6 +310,8 @@ export interface DepositInput {
   fx_rate?: number | null;
   note?: string | null;
   wiseKey?: string | null;
+  hst_owed?: number | null;
+  hst_portion?: number | null;
 }
 
 export class DepositError extends Error {
@@ -247,6 +320,33 @@ export class DepositError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+function resolveHst(cadAmount: number, hstOwed: unknown, hstPortion: unknown): number {
+  const hasDollars = hstOwed !== undefined && hstOwed !== null && hstOwed !== '';
+  if (hasDollars) {
+    const n = Number(hstOwed);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new DepositError(400, 'HST must be zero or more.');
+    }
+    const dollars = round2(n);
+    if (dollars > cadAmount) throw new DepositError(400, "HST can't be more than this deposit's CAD amount.");
+    return dollars;
+  }
+  const hasPortion = hstPortion !== undefined && hstPortion !== null && hstPortion !== '';
+  if (hasPortion) {
+    const p = Number(hstPortion);
+    if (!Number.isFinite(p) || p < 0) {
+      throw new DepositError(400, 'HST % must be zero or more.');
+    }
+    if (p > 100) {
+      throw new DepositError(400, "HST % can't be more than 100.");
+    }
+    const dollars = hstFromPortion(cadAmount, p);
+    if (dollars > cadAmount) throw new DepositError(400, "HST can't be more than this deposit's CAD amount.");
+    return dollars;
+  }
+  return 0;
 }
 
 // Replays every live deposit in chronological order, recomputing each
@@ -260,8 +360,9 @@ export async function recomputeDeposits(db: any, companyId: number, profile: any
   let priorCpp = 0;
   let priorCpp2 = 0;
   for (const d of rows) {
+    const income = depositIncome(d.cad_amount, d.hst_owed || 0);
     const owed = calculateSolePropObligations({
-      cumulativeCad: round2(priorCad + d.cad_amount),
+      cumulativeCad: round2(priorCad + income),
       priorTax,
       priorCpp,
       priorCpp2,
@@ -273,7 +374,7 @@ export async function recomputeDeposits(db: any, companyId: number, profile: any
     await db.prepare(
       'UPDATE sole_prop_deposits SET tax_owed = ?, cpp_owed = ?, cpp2_owed = ? WHERE id = ? AND company_id = ?'
     ).bind(owed.incomeTax, owed.cpp, owed.cpp2, d.id, companyId).run();
-    priorCad = round2(priorCad + d.cad_amount);
+    priorCad = round2(priorCad + income);
     priorTax = round2(priorTax + owed.incomeTax);
     priorCpp = round2(priorCpp + owed.cpp);
     priorCpp2 = round2(priorCpp2 + owed.cpp2);
@@ -302,13 +403,14 @@ export async function recordDeposit(db: any, companyId: number, profile: any, in
   }
 
   const cadAmount = round2(amount * rate);
+  const hstOwed = resolveHst(cadAmount, input.hst_owed, input.hst_portion);
   const inserted = await db.prepare(`
     INSERT INTO sole_prop_deposits
-      (company_id, received_date, foreign_amount, currency, fx_rate, fx_date_used, cad_amount, tax_owed, cpp_owed, cpp2_owed, note, wise_transfer_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+      (company_id, received_date, foreign_amount, currency, fx_rate, fx_date_used, cad_amount, tax_owed, cpp_owed, cpp2_owed, note, wise_transfer_id, hst_owed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)
   `).bind(
     companyId, received_date, amount, currency, rate, dateUsed, cadAmount,
-    input.note ?? null, input.wiseKey ?? null
+    input.note ?? null, input.wiseKey ?? null, hstOwed
   ).run();
 
   await recomputeDeposits(db, companyId, profile);
@@ -328,7 +430,7 @@ router.post('/deposits', async (c) => {
     if ('error' in ws) return c.json({ error: ws.error }, ws.status);
     const { profile } = ws;
 
-    const { received_date, foreign_amount, currency: rawCurrency, fx_rate, note } = await c.req.json();
+    const { received_date, foreign_amount, currency: rawCurrency, fx_rate, note, hst_owed, hst_portion } = await c.req.json();
     if (!validDate(received_date)) return c.json({ error: 'Valid received_date (YYYY-MM-DD) is required' }, 400);
     const currency = String(rawCurrency ?? 'USD').toUpperCase();
     if (!FX_CURRENCIES.includes(currency)) {
@@ -337,7 +439,7 @@ router.post('/deposits', async (c) => {
 
     try {
       const deposit = await recordDeposit(c.env.DB, companyId, profile, {
-        received_date, foreign_amount: Number(foreign_amount), currency, fx_rate, note,
+        received_date, foreign_amount: Number(foreign_amount), currency, fx_rate, note, hst_owed, hst_portion,
       });
       return c.json({ deposit, overview: await buildOverview(c.env.DB, companyId, profile) });
     } catch (e: any) {
@@ -407,6 +509,38 @@ router.post('/instalments/:id/pay', async (c) => {
   }
 });
 
+// POST /api/soleprop/gst-remittances/:id/pay
+router.post('/gst-remittances/:id/pay', async (c) => {
+  try {
+    const companyId = getCompanyId(c);
+    if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
+    const ws = await loadWorkspace(c.env.DB, companyId);
+    if ('error' in ws) return c.json({ error: ws.error }, ws.status);
+    const id = Number(c.req.param('id'));
+    const remittance = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_gst_remittances WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).first() as any;
+    if (!remittance) return c.json({ error: 'GST remittance not found' }, 404);
+    if (!remittance.paid) {
+      const body = await c.req.json().catch(() => ({}));
+      const paidDate = validDate(body?.paid_date) ? body.paid_date : todayStr();
+      await c.env.DB.prepare(
+        'UPDATE sole_prop_gst_remittances SET paid = 1, paid_date = ? WHERE id = ? AND company_id = ?'
+      ).bind(paidDate, id, companyId).run();
+      await c.env.DB.prepare(`
+        INSERT INTO remittance_payments (company_id, type, payment_date, amount, period_end)
+        VALUES (?, 'GST', ?, ?, ?)
+      `).bind(companyId, paidDate, remittance.amount, remittance.due_date).run();
+    }
+    const updated = await c.env.DB.prepare(
+      'SELECT * FROM sole_prop_gst_remittances WHERE id = ? AND company_id = ?'
+    ).bind(id, companyId).first();
+    return c.json({ remittance: updated });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // PUT /api/soleprop/profile
 router.put('/profile', async (c) => {
   try {
@@ -414,7 +548,7 @@ router.put('/profile', async (c) => {
     if (!companyId) return c.json({ error: 'Company settings not initialized. Complete onboarding.' }, 404);
     const ws = await loadWorkspace(c.env.DB, companyId);
     if ('error' in ws) return c.json({ error: ws.error }, ws.status);
-    const { business_number, ytd_pensionable_opening, ytd_cpp_opening, ytd_cpp2_opening } = await c.req.json();
+    const { business_number, ytd_pensionable_opening, ytd_cpp_opening, ytd_cpp2_opening, openings_hidden } = await c.req.json();
     const digits = String(business_number ?? '').replace(/\D/g, '');
     if (business_number !== undefined && business_number !== null && String(business_number).trim() !== '' && digits.length !== 9) {
       return c.json({ error: 'Business number must be 9 digits' }, 400);
@@ -425,30 +559,45 @@ router.put('/profile', async (c) => {
       if (!Number.isFinite(n) || n < 0) throw new DepositError(400, `${name} must be a non-negative number`);
       return n;
     };
-    const pens = num(ytd_pensionable_opening, 'Pensionable earnings');
+    const pens = num(ytd_pensionable_opening, 'Income already earned');
     const cpp = num(ytd_cpp_opening, 'CPP paid');
     const cpp2 = num(ytd_cpp2_opening, 'CPP2 paid');
-    // Nobody can have paid more than the annual maximums — flag typos
-    // at entry instead of producing nonsense ledger math downstream.
-    const openingsError = validateOpenings(pens, cpp, cpp2);
+    const year = openingYear(ws.profile.start_date);
+    const openingsError = validateOpenings(pens, cpp, cpp2, year);
     if (openingsError) throw new DepositError(400, openingsError);
     const current = ws.profile;
+    const changingOpenings = pens !== null || cpp !== null || cpp2 !== null;
+    if (changingOpenings) {
+      const instRes = await c.env.DB
+        .prepare('SELECT * FROM sole_prop_instalments WHERE company_id = ?')
+        .bind(companyId)
+        .all() as any;
+      if (startYearAnnualPaid(instRes?.results ?? [], current.start_date)) {
+        throw new DepositError(400, `${year} opening balances are locked because that year's tax is marked paid.`);
+      }
+    }
+    let hidden = current.openings_hidden ? 1 : 0;
+    if (openings_hidden !== undefined && openings_hidden !== null && openings_hidden !== '') {
+      hidden = Number(openings_hidden) ? 1 : 0;
+    }
     await c.env.DB.prepare(
-      'UPDATE sole_prop_profile SET business_number = ?, ytd_pensionable_opening = ?, ytd_cpp_opening = ?, ytd_cpp2_opening = ? WHERE company_id = ?'
+      'UPDATE sole_prop_profile SET business_number = ?, ytd_pensionable_opening = ?, ytd_cpp_opening = ?, ytd_cpp2_opening = ?, openings_hidden = ? WHERE company_id = ?'
     ).bind(
       digits.length === 9 ? digits : current.business_number,
       pens ?? current.ytd_pensionable_opening ?? 0,
       cpp ?? current.ytd_cpp_opening ?? 0,
       cpp2 ?? current.ytd_cpp2_opening ?? 0,
+      hidden,
       companyId
     ).run();
     const updated = (await c.env.DB.prepare(
       'SELECT * FROM sole_prop_profile WHERE company_id = ?'
     ).bind(companyId).first()) as any;
-    await recomputeDeposits(c.env.DB, companyId, updated);
-    await reallocate(c.env.DB, companyId, updated);
-    const profile = updated;
-    return c.json({ profile });
+    if (changingOpenings) {
+      await recomputeDeposits(c.env.DB, companyId, updated);
+      await reallocate(c.env.DB, companyId, updated);
+    }
+    return c.json({ profile: updated });
   } catch (error: any) {
     if (error instanceof DepositError) return c.json({ error: error.message }, error.status as any);
     return c.json({ error: error.message }, 500);

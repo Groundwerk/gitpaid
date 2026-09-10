@@ -89,6 +89,17 @@ export function formatPostalCode(val: string): string {
   return `${clean.slice(0, 3)} ${clean.slice(3)}`;
 }
 
+export const ON_HST_RATE = 0.13;
+
+export function openingYear(startDate: string): number {
+  const y = Number(String(startDate).slice(0, 4));
+  return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear();
+}
+
+export function hstFromPortion(cadAmount: number, portionPercent: number): number {
+  return Math.round(cadAmount * ON_HST_RATE * (portionPercent / 100) * 100) / 100;
+}
+
 export function formatCurrencyInput(val: string): string {
   const digits = val.replace(/\D/g, '');
   if (!digits) return '';

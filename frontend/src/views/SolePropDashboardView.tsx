@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SolePropOverview, WiseStatus } from '../types';
 import { api } from '../utils/api';
+import { hstFromPortion, openingYear } from '../utils/helpers';
 
 interface SolePropDashboardViewProps {
   triggerToast: (msg: string, type: 'success' | 'error') => void;
@@ -18,6 +19,8 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     currency: 'USD',
     fx_rate: '',
     note: '',
+    hst_percent: '',
+    hst_amount: '',
   });
 
   const load = async () => {
@@ -48,10 +51,30 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     return dueDate < today;
   };
 
+  const cadPreview = (f: typeof form) => {
+    const amount = Number(f.foreign_amount);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    if (f.currency === 'CAD') return amount;
+    const rate = Number(f.fx_rate);
+    if (!Number.isFinite(rate) || rate <= 0) return null;
+    return Math.round(amount * rate * 100) / 100;
+  };
+
+  const withHstPercent = (prev: typeof form, percentStr: string) => {
+    if (percentStr === '') return { ...prev, hst_percent: '' };
+    const p = Number(percentStr);
+    const cad = cadPreview({ ...prev, hst_percent: percentStr });
+    const dollars = Number.isFinite(p) && cad != null ? String(hstFromPortion(cad, p)) : '';
+    return { ...prev, hst_percent: percentStr, hst_amount: dollars };
+  };
+
   const handleFetchRate = async () => {
     try {
       const fx = await api.previewFx(form.received_date, form.currency);
-      setForm(prev => ({ ...prev, fx_rate: String(fx.rate) }));
+      setForm(prev => {
+        const next = { ...prev, fx_rate: String(fx.rate) };
+        return prev.hst_percent ? withHstPercent(next, prev.hst_percent) : next;
+      });
       if (fx.dateUsed !== form.received_date) {
         triggerToast(`Weekend/holiday: using ${fx.dateUsed} rate.`, 'success');
       }
@@ -69,15 +92,19 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
     }
     try {
       setSaving(true);
+      const hstDollars = form.hst_amount.trim() ? Number(form.hst_amount) : undefined;
+      const hstPortion = !form.hst_amount.trim() && form.hst_percent.trim() ? Number(form.hst_percent) : undefined;
       const res = await api.createSolePropDeposit({
         received_date: form.received_date,
         foreign_amount: amount,
         currency: form.currency,
         fx_rate: form.fx_rate.trim() ? Number(form.fx_rate) : undefined,
         note: form.note.trim() || undefined,
+        hst_owed: Number.isFinite(hstDollars as number) ? hstDollars : undefined,
+        hst_portion: Number.isFinite(hstPortion as number) ? hstPortion : undefined,
       });
       setOverview(res.overview);
-      setForm(prev => ({ ...prev, foreign_amount: '', fx_rate: '', note: '' }));
+      setForm(prev => ({ ...prev, foreign_amount: '', fx_rate: '', note: '', hst_percent: '', hst_amount: '' }));
       triggerToast(`Recorded ${formatCurrency(res.deposit.cad_amount)}.`, 'success');
     } catch (error: any) {
       triggerToast(error.message || 'Failed to record deposit.', 'error');
@@ -98,12 +125,39 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
   };
 
   const handlePay = async (id: number) => {
+    const inst = overview?.upcoming.find(i => i.id === id);
+    const year = overview?.profile.start_date ? openingYear(overview.profile.start_date) : null;
+    const locksOpenings = !!inst && inst.kind === 'annual' && year != null && inst.tax_year === year;
+    if (locksOpenings) {
+      const ok = window.confirm(
+        `Mark the ${year} annual balance paid?\n\n${year} opening balances will lock. They fed this estimate, and changing them later wouldn't change what you remitted.`
+      );
+      if (!ok) return;
+    }
     try {
       await api.paySolePropInstalment(id, undefined);
       triggerToast('Instalment marked paid.', 'success');
+      if (locksOpenings && !overview?.profile.openings_hidden) {
+        const hide = window.confirm(
+          `Hide ${year} opening balances from Settings?\n\nThey're locked now — the ${year} tax they affected is marked paid. You can show them again anytime; the values stay read-only.`
+        );
+        if (hide) {
+          await api.updateSolePropProfile({ openings_hidden: 1 });
+        }
+      }
       await load();
     } catch (error: any) {
       triggerToast(error.message || 'Failed to mark paid.', 'error');
+    }
+  };
+
+  const handlePayGst = async (id: number) => {
+    try {
+      await api.paySolePropGstRemittance(id, undefined);
+      triggerToast('GST remittance marked paid.', 'success');
+      await load();
+    } catch (error: any) {
+      triggerToast(error.message || 'Failed to mark GST paid.', 'error');
     }
   };
 
@@ -262,7 +316,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             Tax {formatCurrency(inst.tax_amount)} · CPP {formatCurrency(inst.cpp_amount)} · CPP2 {formatCurrency(inst.cpp2_amount)} ·
             Total {formatCurrency(inst.total_amount)}
           </p>
-          {inst.paid && inst.paid_date && (
+          {!!inst.paid && inst.paid_date && (
             <p className="text-xs mt-1">Paid {inst.paid_date}</p>
           )}
         </div>
@@ -347,12 +401,13 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Received (fiscal CAD)', value: overview.totals.cad },
           { label: 'Est. income tax owed', value: overview.totals.tax },
           { label: 'Est. CPP owed', value: overview.totals.cpp },
           { label: 'Est. CPP2 owed', value: overview.totals.cpp2 },
+          { label: 'Est. HST/GST owed', value: overview.totals.hst ?? 0 },
         ].map(card => (
           <div key={card.label} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm">
             <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">{card.label}</p>
@@ -503,7 +558,10 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="spd-amount">Amount paid</label>
             <input
               id="spd-amount" type="number" min="0" step="0.01" value={form.foreign_amount}
-              onChange={(e) => setForm(prev => ({ ...prev, foreign_amount: e.target.value }))}
+              onChange={(e) => setForm(prev => {
+                const next = { ...prev, foreign_amount: e.target.value };
+                return prev.hst_percent ? withHstPercent(next, prev.hst_percent) : next;
+              })}
               placeholder="5000.00"
               className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
               required
@@ -513,7 +571,10 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="spd-currency">Currency</label>
             <select
               id="spd-currency" value={form.currency}
-              onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value, fx_rate: '' }))}
+              onChange={(e) => setForm(prev => {
+                const next = { ...prev, currency: e.target.value, fx_rate: '' };
+                return prev.hst_percent ? withHstPercent(next, prev.hst_percent) : next;
+              })}
               className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
             >
               {['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'TRY', 'USD', 'ZAR'].map(code => (
@@ -526,7 +587,10 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             <div className="flex gap-2">
               <input
                 id="spd-rate" type="number" min="0" step="0.0001" value={form.fx_rate}
-                onChange={(e) => setForm(prev => ({ ...prev, fx_rate: e.target.value }))}
+                  onChange={(e) => setForm(prev => {
+                  const next = { ...prev, fx_rate: e.target.value };
+                  return prev.hst_percent ? withHstPercent(next, prev.hst_percent) : next;
+                })}
                 placeholder="auto"
                 className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
               />
@@ -538,7 +602,28 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
               </button>
             </div>
           </div>
-          <div className="flex flex-col gap-1.5 md:col-span-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="spd-hst-percent">HST %</label>
+            <input
+              id="spd-hst-percent" type="number" min="0" max="100" step="0.01" value={form.hst_percent}
+              onChange={(e) => setForm(prev => withHstPercent(prev, e.target.value))}
+              placeholder="100 = all of it"
+              className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="spd-hst-amount">HST $</label>
+            <input
+              id="spd-hst-amount" type="number" min="0" step="0.01" value={form.hst_amount}
+              onChange={(e) => setForm(prev => ({ ...prev, hst_amount: e.target.value, hst_percent: '' }))}
+              placeholder="0.00"
+              className="h-10 border border-outline-variant rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-highlight bg-transparent w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 md:col-span-1 justify-end">
+            <p className="text-xs text-on-surface-variant pb-2">Ontario 13%. Leave blank if this deposit is not HST-collectable (e.g. US client).</p>
+          </div>
+          <div className="flex flex-col gap-1.5 md:col-span-3">
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="spd-note">Note (optional)</label>
             <input
               id="spd-note" type="text" value={form.note}
@@ -571,6 +656,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                   <th className="py-2 pr-3">Paid</th>
                   <th className="py-2 pr-3">Rate</th>
                   <th className="py-2 pr-3">CAD</th>
+                  <th className="py-2 pr-3">HST</th>
                   <th className="py-2 pr-3">Tax</th>
                   <th className="py-2 pr-3">CPP</th>
                   <th className="py-2 pr-3">CPP2</th>
@@ -592,6 +678,7 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
                     <td className="py-2 pr-3 whitespace-nowrap">{d.foreign_amount.toLocaleString('en-CA')} {d.currency}</td>
                     <td className="py-2 pr-3">{d.fx_rate}</td>
                     <td className="py-2 pr-3 font-semibold">{formatCurrency(d.cad_amount)}</td>
+                    <td className="py-2 pr-3">{formatCurrency(d.hst_owed ?? 0)}</td>
                     <td className="py-2 pr-3" onMouseEnter={(e) => armBreakdown(e, d)}>
                       <span className="underline decoration-dotted underline-offset-4 hover:text-primary hover:decoration-solid transition-colors cursor-help">
                         {formatCurrency(d.tax_owed)}
@@ -632,8 +719,8 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
             >
               <span>
                 {hovered.received_date} covers dollars {formatCurrency(b.cumulativeBefore)}–{formatCurrency(b.cumulativeAfter)} of
-                your year-to-date income. Earlier dollars filled the low brackets (and the basic personal amount
-                shielded the first ~$16,500), so these dollars are taxed at a higher marginal rate.
+                your year-to-date income (deposits plus any opening balance in Settings). Earlier dollars filled
+                the lower brackets, so these dollars are taxed at the marginal rate for that band.
               </span>
               <span>
                 Income tax {formatCurrency(hovered.tax_owed)} ≈ {hovered.cad_amount > 0 ? Math.round((hovered.tax_owed / hovered.cad_amount) * 1000) / 10 : 0}% marginal
@@ -679,6 +766,49 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
           )}
         </div>
       </div>
+
+      {(overview.gst_remittances ?? []).length > 0 && (
+        <div className="bg-surface-container-lowest border border-teal-200 rounded-xl p-4 md:p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-teal-800 uppercase tracking-wider border-b border-teal-200 pb-2 mb-4">GST/HST remittance</h2>
+          <div className="flex flex-col gap-3">
+            {[...(overview.gst_remittances ?? [])].sort((a, b) =>
+              a.due_date < b.due_date ? -1 : 1
+            ).map(row => {
+              const overdue = isOverdue(row.due_date, row.paid);
+              return (
+                <div
+                  key={row.id}
+                  className={`p-4 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm ${
+                    row.paid
+                      ? 'bg-surface-container border-outline-variant opacity-70'
+                      : overdue
+                        ? 'bg-rose-50 border-rose-200 text-rose-900'
+                        : 'bg-teal-50 border-teal-200 text-teal-900'
+                  }`}
+                >
+                  <div>
+                    <p className="text-sm font-bold">
+                      {row.tax_year} GST/HST — due {row.due_date}
+                    </p>
+                    <p className="text-xs mt-1">Amount {formatCurrency(row.amount)}</p>
+                    {!!row.paid && row.paid_date && (
+                      <p className="text-xs mt-1">Paid {row.paid_date}</p>
+                    )}
+                  </div>
+                  {!row.paid && (
+                    <button
+                      type="button" onClick={() => handlePayGst(row.id)}
+                      className="h-10 px-4 rounded-lg bg-teal-700 text-white text-sm font-bold hover:opacity-90 transition-opacity whitespace-nowrap self-start md:self-center"
+                    >
+                      Mark GST paid
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

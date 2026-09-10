@@ -1,4 +1,4 @@
-import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropInstalment, SolePropOverview, SolePropProfile, WiseStatus } from '../types';
+import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropGstRemittance, SolePropInstalment, SolePropOverview, SolePropProfile, WiseStatus } from '../types';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -62,7 +62,7 @@ export const api = {
   deleteEmployee: (id: number) => 
     request<{ message: string }>(`/employees/${id}`, { method: 'DELETE' }),
 
-  updateSolePropProfile: (profile: { business_number?: string; ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number }) =>
+  updateSolePropProfile: (profile: { business_number?: string; ytd_pensionable_opening?: number; ytd_cpp_opening?: number; ytd_cpp2_opening?: number; openings_hidden?: number }) =>
     request<{ profile: SolePropProfile }>('/soleprop/profile', { method: 'PUT', body: JSON.stringify(profile) }),
   getWiseStatus: () =>
     request<{ connected: boolean; last4: string | null; label: string | null; updated_at: string | null; autoSync: boolean; employer: { key: string; label: string } | null }>('/soleprop/wise/status'),
@@ -250,11 +250,13 @@ export const api = {
     request<{ rate: number; dateUsed: string; currency: string }>(
       `/soleprop/fx-preview?date=${encodeURIComponent(date)}&currency=${encodeURIComponent(currency)}`
     ),
-  createSolePropDeposit: (deposit: { received_date: string; foreign_amount: number; currency?: string; fx_rate?: number; note?: string }) =>
+  createSolePropDeposit: (deposit: { received_date: string; foreign_amount: number; currency?: string; fx_rate?: number; note?: string; hst_owed?: number; hst_portion?: number }) =>
     request<{ deposit: SolePropDeposit; overview: SolePropOverview }>('/soleprop/deposits', { method: 'POST', body: JSON.stringify(deposit) }),
   voidSolePropDeposit: (id: number) =>
     request<{ overview: SolePropOverview }>(`/soleprop/deposits/${id}/void`, { method: 'POST' }),
   paySolePropInstalment: (id: number, paid_date?: string) =>
     request<{ instalment: SolePropInstalment }>(`/soleprop/instalments/${id}/pay`, { method: 'POST', body: JSON.stringify({ paid_date }) }),
+  paySolePropGstRemittance: (id: number, paid_date?: string) =>
+    request<{ remittance: SolePropGstRemittance }>(`/soleprop/gst-remittances/${id}/pay`, { method: 'POST', body: JSON.stringify({ paid_date }) }),
 };
 export default api;

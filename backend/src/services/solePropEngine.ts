@@ -38,9 +38,10 @@ function progressiveTax(income: number, brackets: Bracket[]): number {
 interface CumulativeOwed { fed: number; prov: number; cpp: number; cpp2: number; }
 
 function cumulativeObligations(cumulativeCad: number, ytdPensionableOpening: number, t: SolePropTaxTables): CumulativeOwed {
-  const fedTaxable = Math.max(0, cumulativeCad - t.fedBPA);
-  const provTaxable = Math.max(0, cumulativeCad - t.provCredit);
-  const totalPensionable = ytdPensionableOpening + cumulativeCad;
+  const totalIncome = ytdPensionableOpening + cumulativeCad;
+  const fedTaxable = Math.max(0, totalIncome - t.fedBPA);
+  const provTaxable = Math.max(0, totalIncome - t.provCredit);
+  const totalPensionable = totalIncome;
   const contributory = Math.max(0, Math.min(totalPensionable, t.ympe) - t.ybe);
   const band = Math.max(0, Math.min(totalPensionable, t.yampe) - t.ympe);
   return {
@@ -54,8 +55,10 @@ function cumulativeObligations(cumulativeCad: number, ytdPensionableOpening: num
 export function calculateSolePropObligations(i: SolePropInputs): SolePropOutputs {
   const t = tablesForYear(i.taxYear);
   const cum = cumulativeObligations(i.cumulativeCad, i.ytdPensionableOpening, t);
+  const opening = cumulativeObligations(0, i.ytdPensionableOpening, t);
   const cumTax = round2(cum.fed + cum.prov);
-  const incomeTax = Math.max(0, round2(cumTax - i.priorTax));
+  const openingTax = round2(opening.fed + opening.prov);
+  const incomeTax = Math.max(0, round2(cumTax - openingTax - i.priorTax));
   const cpp = Math.max(0, round2(cum.cpp - i.ytdCppOpening - i.priorCpp));
   const cpp2 = Math.max(0, round2(cum.cpp2 - i.ytdCpp2Opening - i.priorCpp2));
   return { incomeTax, cpp, cpp2, total: round2(incomeTax + cpp + cpp2) };
@@ -63,13 +66,13 @@ export function calculateSolePropObligations(i: SolePropInputs): SolePropOutputs
 // Guards YTD opening balances at entry: nobody can have paid more than
 // the annual maximums, so anything above is a typo. Returns an error
 // message, or null when the figures are possible.
-export function validateOpenings(pens: number | null, cpp: number | null, cpp2: number | null): string | null {
-  const t = tablesForYear(2026);
+export function validateOpenings(pens: number | null, cpp: number | null, cpp2: number | null, taxYear = 2026): string | null {
+  const t = tablesForYear(taxYear);
   if (cpp !== null && cpp > t.cppSelfMax) {
-    return `CPP paid cannot exceed the 2026 self-employed maximum of $${t.cppSelfMax.toLocaleString('en-CA')}`;
+    return `CPP paid cannot exceed the ${taxYear} self-employed maximum of $${t.cppSelfMax.toLocaleString('en-CA')}`;
   }
   if (cpp2 !== null && cpp2 > t.cpp2SelfMax) {
-    return `CPP2 paid cannot exceed the 2026 self-employed maximum of $${t.cpp2SelfMax.toLocaleString('en-CA')}`;
+    return `CPP2 paid cannot exceed the ${taxYear} self-employed maximum of $${t.cpp2SelfMax.toLocaleString('en-CA')}`;
   }
   return null;
 }
@@ -98,9 +101,10 @@ export function ledgerBreakdown(
     const fedTax = round2(after.fed - before.fed);
     const taxDelta = round2(round2(after.fed + after.prov) - round2(before.fed + before.prov));
     const cppRoomAfter = round2(Math.max(0, t.cppSelfMax - openings.ytdCppOpening - after.cpp));
+    const opening = openings.ytdPensionableOpening;
     const slice = {
-      cumulativeBefore: running,
-      cumulativeAfter: afterCum,
+      cumulativeBefore: round2(running + opening),
+      cumulativeAfter: round2(afterCum + opening),
       fedTax,
       provTax: round2(taxDelta - fedTax),
       cppRoomAfter,
@@ -167,7 +171,37 @@ export function allocateToInstalments(
   return out;
 }
 
-export interface GstDeposit { received_date: string; cad_amount: number; voided: number; }
+export const ON_HST_RATE = 0.13;
+
+export function hstFromPortion(cadAmount: number, portionPercent: number): number {
+  return round2(cadAmount * ON_HST_RATE * (portionPercent / 100));
+}
+
+export function depositIncome(cadAmount: number, hstOwed = 0): number {
+  return round2(Math.max(0, cadAmount - (hstOwed || 0)));
+}
+
+export interface GstRemittanceDeposit { received_date: string; hst_owed: number; voided: number; }
+export interface GstRemittanceRow { tax_year: number; due_date: string; amount: number; }
+
+export function allocateGstRemittances(deposits: GstRemittanceDeposit[]): GstRemittanceRow[] {
+  const byYear = new Map<number, number>();
+  for (const d of deposits) {
+    if (d.voided) continue;
+    const year = Number(d.received_date.slice(0, 4));
+    byYear.set(year, round2((byYear.get(year) ?? 0) + (d.hst_owed || 0)));
+  }
+  return [...byYear.entries()]
+    .filter(([, amount]) => amount > 0)
+    .sort(([a], [b]) => a - b)
+    .map(([tax_year, amount]) => ({
+      tax_year,
+      due_date: `${tax_year + 1}-06-15`,
+      amount,
+    }));
+}
+
+export interface GstDeposit { received_date: string; cad_amount: number; hst_owed?: number; voided: number; }
 export interface GstStatus {
   rollingTotal: number;
   crossed: boolean;
@@ -193,11 +227,15 @@ function addMonths(dateStr: string, months: number): string {
   return dt.toISOString().split('T')[0];
 }
 
+function consideration(d: GstDeposit): number {
+  return depositIncome(d.cad_amount, d.hst_owed ?? 0);
+}
+
 export function gstStatus(deposits: GstDeposit[], asOf: string): GstStatus {
   const live = deposits.filter((d) => !d.voided && d.received_date <= asOf);
   const windowStart = addMonths(quarterStart(asOf), -9);
   const rollingTotal = round2(
-    live.filter((d) => d.received_date >= windowStart).reduce((s, d) => s + d.cad_amount, 0)
+    live.filter((d) => d.received_date >= windowStart).reduce((s, d) => s + consideration(d), 0)
   );
   let crossingDate: string | null = null;
   for (const d of [...live].sort((a, b) =>
@@ -207,7 +245,7 @@ export function gstStatus(deposits: GstDeposit[], asOf: string): GstStatus {
     const windowed = round2(
       live
         .filter((x) => x.received_date <= d.received_date && x.received_date >= winStart)
-        .reduce((s, x) => s + x.cad_amount, 0)
+        .reduce((s, x) => s + consideration(x), 0)
     );
     if (windowed >= 30000) {
       crossingDate = d.received_date;

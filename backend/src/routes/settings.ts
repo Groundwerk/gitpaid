@@ -207,7 +207,7 @@ const saveSettings = async (c: any) => {
         const initPens = Number(sole_prop_ytd_pensionable) || 0;
         const initCpp = Number(sole_prop_ytd_cpp) || 0;
         const initCpp2 = Number(sole_prop_ytd_cpp2) || 0;
-        const openingsError = validateOpenings(initPens, initCpp, initCpp2);
+        const openingsError = validateOpenings(initPens, initCpp, initCpp2, Number(startDate.slice(0, 4)) || 2026);
         if (openingsError) {
           return c.json({ error: openingsError }, 400);
         }

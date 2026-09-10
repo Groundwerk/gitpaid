@@ -19,9 +19,10 @@ const overview: any = {
     business_number: null, start_date: '2026-08-15', province: 'ON',
     ytd_pensionable_opening: 190000, ytd_cpp_opening: 8460.9, ytd_cpp2_opening: 832,
   },
-  totals: { cad: 0, tax: 0, cpp: 0, cpp2: 0 },
+  totals: { cad: 0, tax: 0, cpp: 0, cpp2: 0, hst: 0 },
   deposits: [],
   upcoming: [],
+  gst_remittances: [],
   gst: { rollingTotal: 0, crossed: false, crossingDate: null, deadline: null, hasBN: false },
 };
 describe('SolePropSettingsView', () => {
@@ -42,9 +43,54 @@ describe('SolePropSettingsView', () => {
     render(<SolePropSettingsView triggerToast={() => {}} />);
     expect(await screen.findByText(/Sole proprietor settings/i)).toBeInTheDocument();
     expect(screen.getByText('2026-08-15')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /2026 opening balances/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/income already earned \(\$\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/pensionable/i)).toBeNull();
     expect(screen.queryByText(/pay group/i)).toBeNull();
     expect(screen.queryByText(/WSIB/i)).toBeNull();
     expect(screen.queryByText(/Employer Health Tax/i)).toBeNull();
+  });
+
+  it('titles openings with the start-date year', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      profile: { ...overview.profile, start_date: '2025-03-01' },
+    });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    expect(await screen.findByRole('heading', { name: /2025 opening balances/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /2026 opening balances/i })).toBeNull();
+  });
+
+  it('locks openings when the start-year annual is paid', async () => {
+    vi.mocked(api.getSolePropOverview).mockResolvedValue({
+      ...overview,
+      profile: { ...overview.profile, openings_locked: true, openings_hidden: 0 },
+      upcoming: [{ id: 1, tax_year: 2026, due_date: '2027-04-30', kind: 'annual', paid: 1, paid_date: '2027-04-15' }],
+    });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    expect(await screen.findByLabelText(/income already earned \(\$\)/i)).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /save openings/i })).toBeNull();
+    expect(screen.getByText(/locked/i)).toBeInTheDocument();
+  });
+
+  it('hides locked openings until shown again', async () => {
+    vi.mocked(api.updateSolePropProfile).mockResolvedValue({
+      profile: { ...overview.profile, openings_hidden: 0, openings_locked: true },
+    });
+    vi.mocked(api.getSolePropOverview)
+      .mockResolvedValueOnce({
+        ...overview,
+        profile: { ...overview.profile, openings_locked: true, openings_hidden: 1 },
+      })
+      .mockResolvedValue({
+        ...overview,
+        profile: { ...overview.profile, openings_locked: true, openings_hidden: 0 },
+      });
+    render(<SolePropSettingsView triggerToast={() => {}} />);
+    expect(await screen.findByRole('button', { name: /show 2026 opening/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/income already earned/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /show 2026 opening/i }));
+    await waitFor(() => expect(api.updateSolePropProfile).toHaveBeenCalledWith({ openings_hidden: 0 }));
   });
 
   it('saves a business number through the sole-prop API', async () => {
