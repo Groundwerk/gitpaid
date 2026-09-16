@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import { sanitizeNumericInput, formatSIN, cleanSIN, formatBusinessNumber, cleanBusinessNumber, formatPhone, cleanPhone, formatPostalCode, cleanPostalCode } from '../utils/helpers';
 import { FormattedInput } from '../components/FormattedInput';
 import { NumericFormat } from 'react-number-format';
@@ -157,7 +157,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
       } catch (error) {
         console.error('Error fetching settings:', error);
-        triggerToast('Failed to load company configuration settings.', 'error');
+        if (!isUnauthorizedError(error)) {
+          triggerToast('Failed to load company configuration settings.', 'error');
+        }
       } finally {
         setLoading(false);
       }
@@ -233,7 +235,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('Failed to load pay groups.', 'error');
+      if (!isUnauthorizedError(err)) {
+        triggerToast('Failed to load pay groups.', 'error');
+      }
     } finally {
       setPayGroupsLoading(false);
     }
@@ -256,7 +260,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('Failed to load schedules for this pay group.', 'error');
+      if (!isUnauthorizedError(err)) {
+        triggerToast('Failed to load schedules for this pay group.', 'error');
+      }
     } finally {
       setSchedulesLoading(false);
     }

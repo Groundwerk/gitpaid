@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import { sanitizeNumericInput } from '../utils/helpers';
 import type { Employee } from '../types';
 
@@ -82,7 +82,9 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({
         setVacationPayout(vacMap);
       } catch (error) {
         console.error('Error fetching employees for payrun:', error);
-        triggerToast('Failed to load employee configuration.', 'error');
+        if (!isUnauthorizedError(error)) {
+          triggerToast('Failed to load employee configuration.', 'error');
+        }
       } finally {
         setLoading(false);
       }

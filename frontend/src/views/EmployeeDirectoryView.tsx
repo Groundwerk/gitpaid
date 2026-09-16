@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import type { Employee } from '../types';
 
 interface EmployeeDirectoryViewProps {
@@ -34,7 +34,9 @@ export const EmployeeDirectoryView: React.FC<EmployeeDirectoryViewProps> = ({
       setFilteredEmployees(data);
     } catch (error) {
       console.error('Error fetching employees:', error);
-      triggerToast('Failed to load employee list.', 'error');
+      if (!isUnauthorizedError(error)) {
+        triggerToast('Failed to load employee list.', 'error');
+      }
     } finally {
       setLoading(false);
     }

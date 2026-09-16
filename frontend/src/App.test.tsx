@@ -32,7 +32,10 @@ vi.mock('./utils/api', () => {
         craRemittance: 0
       })
     },
-    API_BASE: 'http://localhost:5001/api'
+    API_BASE: 'http://localhost:5001/api',
+    isUnauthorizedError: (error: unknown) =>
+      typeof error === 'object' && error !== null && (error as { status?: number }).status === 401,
+    restoreApiSession: vi.fn(),
   };
 });
 
@@ -115,6 +118,34 @@ describe('Frontend App Authentication States', () => {
       expect(screen.getByText('Ontario Payroll Portal')).toBeInTheDocument();
     });
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('shows a single session-expired toast when many requests 401 at once', async () => {
+    const { api } = await import('./utils/api');
+    const rejectUnauthorized = () =>
+      Promise.resolve().then(() => {
+        window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+        throw Object.assign(new Error('Unauthorized'), { status: 401 });
+      });
+    vi.mocked(api.getSettings).mockImplementationOnce(rejectUnauthorized);
+    vi.mocked(api.getYtdReports).mockImplementationOnce(rejectUnauthorized);
+    vi.mocked(api.getPayrollRuns).mockImplementationOnce(rejectUnauthorized);
+    vi.mocked(api.getEmployees).mockImplementationOnce(rejectUnauthorized);
+    vi.mocked(api.getUpcomingSchedules).mockImplementationOnce(rejectUnauthorized);
+
+    localStorage.setItem('token', 'mock-jwt-token');
+    localStorage.setItem('email', 'admin@company.com');
+    localStorage.setItem('name', 'Admin User');
+    localStorage.setItem('avatar', '');
+    localStorage.setItem('companyId', '1');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ontario Payroll Portal')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Session expired. Please sign in again.')).toHaveLength(1);
+    expect(screen.queryByText('Failed to load dashboard summaries.')).not.toBeInTheDocument();
   });
   it('drops stale company sessions back to onboarding instead of an empty shell', async () => {
     const { api } = await import('./utils/api');

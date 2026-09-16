@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardView from './views/DashboardView';
@@ -11,7 +11,7 @@ import LoginView from './views/LoginView';
 import OnboardingView from './views/OnboardingView';
 import SolePropDashboardView from './views/SolePropDashboardView';
 import SolePropReportsView from './views/SolePropReportsView';
-import { api } from './utils/api';
+import { api, restoreApiSession } from './utils/api';
 
 interface Toast {
   id: number;
@@ -39,6 +39,8 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastIdRef = useRef(0);
+  const sessionExpiredRef = useRef(false);
   
   // Navigation states for employee view subroutes
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
@@ -105,9 +107,14 @@ export const App: React.FC = () => {
 
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    
+    const id = ++toastIdRef.current;
+    setToasts((prev) => {
+      if (prev.some((t) => t.message === message && t.type === type)) {
+        return prev;
+      }
+      return [...prev, { id, message, type }];
+    });
+
     // Auto-remove toast after 4 seconds
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -115,6 +122,9 @@ export const App: React.FC = () => {
   };
 
   const handleLoginSuccess = (authData: { token: string; email: string; name: string; avatar: string; companyId: number | null; needsOnboarding: boolean }) => {
+    sessionExpiredRef.current = false;
+    restoreApiSession();
+    setToasts([]);
     localStorage.setItem('token', authData.token);
     localStorage.setItem('email', authData.email);
     localStorage.setItem('name', authData.name);
@@ -168,6 +178,8 @@ export const App: React.FC = () => {
   // Listen for unauthorized events (e.g. token expired) to trigger logout
   useEffect(() => {
     const handleUnauthorized = () => {
+      if (sessionExpiredRef.current) return;
+      sessionExpiredRef.current = true;
       handleLogout(false);
       triggerToast('Session expired. Please sign in again.', 'error');
     };
@@ -303,37 +315,40 @@ export const App: React.FC = () => {
     }
   };
 
+  const toastStack = (
+    <div className="fixed bottom-5 inset-x-4 md:inset-x-auto md:right-5 z-50 flex flex-col gap-2.5 max-w-sm mx-auto md:mx-0 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`
+            p-4 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-3 transition-all duration-300 pointer-events-auto
+            ${t.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+            }
+          `}
+        >
+          <span className="material-symbols-outlined">
+            {t.type === 'success' ? 'check_circle' : 'error'}
+          </span>
+          <span className="flex-1">{t.message}</span>
+          <button
+            onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
+            className="text-on-surface-variant hover:text-on-surface transition-colors pointer-events-auto"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
   // Render LoginView if unauthenticated
   if (!token) {
     return (
       <div className="bg-background text-on-background antialiased min-h-screen flex items-center justify-center text-sm">
         <LoginView onLoginSuccess={handleLoginSuccess} triggerToast={triggerToast} />
-        {/* Toast stack for login notifications */}
-        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-          {toasts.map((t) => (
-            <div 
-              key={t.id}
-              className={`
-                p-4 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-3 transition-all duration-300 pointer-events-auto
-                ${t.type === 'success' 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
-                }
-              `}
-            >
-              <span className="material-symbols-outlined">
-                {t.type === 'success' ? 'check_circle' : 'error'}
-              </span>
-              <span className="flex-1">{t.message}</span>
-              <button 
-                onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
-                className="text-on-surface-variant hover:text-on-surface transition-colors pointer-events-auto"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          ))}
-        </div>
+        {toastStack}
       </div>
     );
   }
@@ -342,37 +357,12 @@ export const App: React.FC = () => {
   if (companyId === null) {
     return (
       <div className="bg-background text-on-background antialiased min-h-screen flex items-center justify-center text-sm">
-        <OnboardingView 
-          onOnboardingComplete={handleOnboardingComplete} 
-          triggerToast={triggerToast} 
+        <OnboardingView
+          onOnboardingComplete={handleOnboardingComplete}
+          triggerToast={triggerToast}
           onLogout={handleLogout}
         />
-        {/* Toast stack for onboarding notifications */}
-        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-          {toasts.map((t) => (
-            <div 
-              key={t.id}
-              className={`
-                p-4 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-3 transition-all duration-300 pointer-events-auto
-                ${t.type === 'success' 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
-                }
-              `}
-            >
-              <span className="material-symbols-outlined">
-                {t.type === 'success' ? 'check_circle' : 'error'}
-              </span>
-              <span className="flex-1">{t.message}</span>
-              <button 
-                onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
-                className="text-on-surface-variant hover:text-on-surface transition-colors pointer-events-auto"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          ))}
-        </div>
+        {toastStack}
       </div>
     );
   }
@@ -418,32 +408,7 @@ export const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Toast Notice Stack */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-        {toasts.map((t) => (
-          <div 
-            key={t.id}
-            className={`
-              p-4 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-3 transition-all duration-300 pointer-events-auto animate-bounce-short
-              ${t.type === 'success' 
-                ? 'bg-green-50 border-green-200 text-green-800' 
-                : 'bg-red-50 border-red-200 text-red-800'
-              }
-            `}
-          >
-            <span className="material-symbols-outlined">
-              {t.type === 'success' ? 'check_circle' : 'error'}
-            </span>
-            <span className="flex-1">{t.message}</span>
-            <button 
-              onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
-              className="text-on-surface-variant hover:text-on-surface transition-colors pointer-events-auto"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        ))}
-      </div>
+      {toastStack}
     </div>
   );
 };
