@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { SolePropOverview } from '../types';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import { openingYear } from '../utils/helpers';
 
 interface SolePropSettingsViewProps {
@@ -36,7 +36,9 @@ export const SolePropSettingsView: React.FC<SolePropSettingsViewProps> = ({
         setWise(await api.getWiseStatus());
       } catch (error: any) {
         console.error('Failed to load sole-prop settings:', error);
-        triggerToast(error.message || 'Failed to load settings.', 'error');
+        if (!isUnauthorizedError(error)) {
+          triggerToast(error.message || 'Failed to load settings.', 'error');
+        }
       } finally {
         setLoading(false);
       }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import { sanitizeNumericInput, formatSIN, cleanSIN } from '../utils/helpers';
 import { FormattedInput } from '../components/FormattedInput';
 import { NumericFormat } from 'react-number-format';
@@ -97,7 +97,9 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
           setIsYtdLocked(hasYtdValue || !!data.has_payruns);
         } catch (error) {
           console.error('Error loading employee profile:', error);
-          triggerToast('Failed to load employee details.', 'error');
+          if (!isUnauthorizedError(error)) {
+            triggerToast('Failed to load employee details.', 'error');
+          }
           onBack();
         } finally {
           setLoading(false);

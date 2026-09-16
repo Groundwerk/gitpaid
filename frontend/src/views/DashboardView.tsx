@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { PayrollRun } from '../types';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 
 interface DashboardViewProps {
   onStartPayroll: (scheduleId?: number) => void;
@@ -32,7 +32,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         setUpcomingSchedules(schedules);
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
-        triggerToast('Failed to load dashboard summaries.', 'error');
+        if (!isUnauthorizedError(error)) {
+          triggerToast('Failed to load dashboard summaries.', 'error');
+        }
       } finally {
         setLoading(false);
       }

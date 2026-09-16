@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SolePropOverview, WiseStatus } from '../types';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import { hstFromPortion, openingYear } from '../utils/helpers';
 
 interface SolePropDashboardViewProps {
@@ -30,7 +30,9 @@ export const SolePropDashboardView: React.FC<SolePropDashboardViewProps> = ({ tr
       refreshWiseStatus();
     } catch (error: any) {
       console.error('Failed to load sole-prop overview:', error);
-      triggerToast(error.message || 'Failed to load ledger.', 'error');
+      if (!isUnauthorizedError(error)) {
+        triggerToast(error.message || 'Failed to load ledger.', 'error');
+      }
     } finally {
       setLoading(false);
     }

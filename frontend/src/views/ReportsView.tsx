@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 import type { PayrollRun } from '../types';
 
 interface ReportsViewProps {
@@ -170,7 +170,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ triggerToast }) => {
       }
     } catch (error) {
       console.error('Error loading reports data:', error);
-      triggerToast('Failed to load compliance report summaries.', 'error');
+      if (!isUnauthorizedError(error)) {
+        triggerToast('Failed to load compliance report summaries.', 'error');
+      }
     } finally {
       setLoading(false);
     }

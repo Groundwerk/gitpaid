@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { SolePropDeposit, SolePropOverview } from '../types';
-import { api } from '../utils/api';
+import { api, isUnauthorizedError } from '../utils/api';
 
 interface SolePropReportsViewProps {
   triggerToast: (msg: string, type: 'success' | 'error') => void;
@@ -44,7 +44,9 @@ export const SolePropReportsView: React.FC<SolePropReportsViewProps> = ({ trigge
         setOverview(await api.getSolePropOverview());
       } catch (error: any) {
         console.error('Failed to load earnings report:', error);
-        triggerToast(error.message || 'Failed to load report.', 'error');
+        if (!isUnauthorizedError(error)) {
+          triggerToast(error.message || 'Failed to load report.', 'error');
+        }
       } finally {
         setLoading(false);
       }

@@ -2,49 +2,111 @@ import type { CompanySettings, Employee, PayrollRun, SolePropDeposit, SolePropGs
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+let expiredToken: string | null = null;
+const inflightControllers = new Set<AbortController>();
+
+function unauthorizedError(message = 'Unauthorized'): Error & { status: number } {
+  const error = new Error(message) as Error & { status: number };
+  error.status = 401;
+  return error;
+}
+
+export function restoreApiSession() {
+  expiredToken = null;
+}
+
+export function isUnauthorizedError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { status?: number }).status === 401;
+}
+
+function invalidateSession(token: string | null) {
+  expiredToken = token;
+  for (const controller of inflightControllers) {
+    controller.abort();
+  }
+  inflightControllers.clear();
+  if (localStorage.getItem('token')) {
+    window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+  }
+}
+
+function sessionIsDead(token: string | null): boolean {
+  return expiredToken !== null && (!token || token === expiredToken);
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('token');
+  if (sessionIsDead(token)) {
+    throw unauthorizedError();
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string> || {})
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+  const controller = new AbortController();
+  inflightControllers.add(controller);
+  try {
+    const res = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        invalidateSession(token);
+      }
+      const err = await res.json().catch(() => ({ error: 'An unknown error occurred' }));
+      const error = new Error(err.error || `HTTP error ${res.status}`) as Error & { status: number };
+      error.status = res.status;
+      throw error;
     }
-    const err = await res.json().catch(() => ({ error: 'An unknown error occurred' }));
-    const error = new Error(err.error || `HTTP error ${res.status}`) as Error & { status: number };
-    error.status = res.status;
+    return res.json() as Promise<T>;
+  } catch (error) {
+    if (expiredToken && error instanceof Error && error.name === 'AbortError') {
+      throw unauthorizedError();
+    }
     throw error;
+  } finally {
+    inflightControllers.delete(controller);
   }
-  return res.json() as Promise<T>;
 }
 
 export const api = {
   // Download file helper (with authentication)
   downloadFile: async (url: string): Promise<Blob> => {
     const token = localStorage.getItem('token');
+    if (sessionIsDead(token)) {
+      throw unauthorizedError();
+    }
     const headers: Record<string, string> = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      if (res.status === 401) {
-        window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+    const controller = new AbortController();
+    inflightControllers.add(controller);
+    try {
+      const res = await fetch(url, { headers, signal: controller.signal });
+      if (!res.ok) {
+        if (res.status === 401) {
+          invalidateSession(token);
+        }
+        throw new Error(`HTTP error ${res.status}`);
       }
-      throw new Error(`HTTP error ${res.status}`);
+      return res.blob();
+    } catch (error) {
+      if (expiredToken && error instanceof Error && error.name === 'AbortError') {
+        throw unauthorizedError();
+      }
+      throw error;
+    } finally {
+      inflightControllers.delete(controller);
     }
-    return res.blob();
   },
 
   // Settings
